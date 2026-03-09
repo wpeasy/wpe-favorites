@@ -1,5 +1,16 @@
 # Changelog
 
+## 1.0.2 — 2026-03-09
+
+### Added
+
+- **Global Count** — Post Type Source toggle (Select multi-select / Dynamic) matching User Count pattern
+- **Post Count** — Post ID Source toggle (Select / Dynamic) for dynamic post ID resolution
+- **Updater changelog** — GitHub release notes rendered as formatted HTML in the WordPress update details popup
+- **Updater description** — notes that full documentation is available in the admin Documentation submenu
+
+---
+
 ## 1.0.1 — 2026-03-09
 
 ### Added

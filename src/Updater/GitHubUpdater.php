@@ -126,8 +126,11 @@ final class GitHubUpdater {
 
         $changelog = '';
         if (!empty($release['body'])) {
-            $changelog = nl2br(esc_html($release['body']));
+            $changelog = self::markdown_to_html($release['body']);
         }
+
+        $description  = '<p>' . __('User favorites system for WordPress Posts and Custom Post Types.', 'wpef') . '</p>';
+        $description .= '<p>' . __('Full documentation is available in the WordPress admin under the <strong>WPE Favorites &rarr; Documentation</strong> submenu.', 'wpef') . '</p>';
 
         return (object) [
             'name'          => 'WPE Favorites',
@@ -140,7 +143,7 @@ final class GitHubUpdater {
             'downloaded'    => 0,
             'last_updated'  => $release['published_at'] ?? '',
             'sections'      => [
-                'description' => __('User favorites system for WordPress Posts and Custom Post Types.', 'wpef'),
+                'description' => $description,
                 'changelog'   => $changelog,
             ],
             'download_link' => self::get_zip_url($release),
@@ -277,5 +280,82 @@ final class GitHubUpdater {
      */
     private static function normalize_version(string $version): string {
         return ltrim($version, 'vV');
+    }
+
+    /**
+     * Convert basic GitHub-flavored markdown to HTML for the changelog.
+     *
+     * Handles headings, bold, inline code, unordered lists, and paragraphs.
+     *
+     * @param string $markdown Raw markdown string.
+     * @return string HTML output.
+     */
+    private static function markdown_to_html(string $markdown): string {
+        $lines  = explode("\n", $markdown);
+        $html   = '';
+        $in_list = false;
+
+        foreach ($lines as $line) {
+            $trimmed = trim($line);
+
+            // Empty line — close list if open.
+            if ($trimmed === '') {
+                if ($in_list) {
+                    $html .= '</ul>';
+                    $in_list = false;
+                }
+                continue;
+            }
+
+            // Headings.
+            if (preg_match('/^(#{1,4})\s+(.+)$/', $trimmed, $m)) {
+                if ($in_list) {
+                    $html .= '</ul>';
+                    $in_list = false;
+                }
+                $level = strlen($m[1]);
+                $html .= sprintf('<h%d>%s</h%d>', $level, esc_html($m[2]), $level);
+                continue;
+            }
+
+            // List items.
+            if (preg_match('/^[-*]\s+(.+)$/', $trimmed, $m)) {
+                if (!$in_list) {
+                    $html .= '<ul>';
+                    $in_list = true;
+                }
+                $html .= '<li>' . self::inline_markdown(esc_html($m[1])) . '</li>';
+                continue;
+            }
+
+            // Regular paragraph line.
+            if ($in_list) {
+                $html .= '</ul>';
+                $in_list = false;
+            }
+            $html .= '<p>' . self::inline_markdown(esc_html($trimmed)) . '</p>';
+        }
+
+        if ($in_list) {
+            $html .= '</ul>';
+        }
+
+        return $html;
+    }
+
+    /**
+     * Convert inline markdown (bold, code) to HTML.
+     *
+     * Operates on already-escaped text.
+     *
+     * @param string $text Escaped text.
+     * @return string Text with inline HTML.
+     */
+    private static function inline_markdown(string $text): string {
+        // **bold**
+        $text = preg_replace('/\*\*(.+?)\*\*/', '<strong>$1</strong>', $text);
+        // `code`
+        $text = preg_replace('/`(.+?)`/', '<code>$1</code>', $text);
+        return $text;
     }
 }
