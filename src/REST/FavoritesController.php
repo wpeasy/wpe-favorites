@@ -56,8 +56,9 @@ final class FavoritesController {
             'permission_callback' => [self::class, 'check_permission'],
             'args'                => [
                 'favorites' => [
-                    'required' => true,
-                    'type'     => 'array',
+                    'required'          => true,
+                    'type'              => 'array',
+                    'sanitize_callback' => [self::class, 'sanitize_favorites_array'],
                 ],
             ],
         ]);
@@ -81,7 +82,21 @@ final class FavoritesController {
             ],
         ]);
 
-        // DELETE — remove a favorite.
+        // DELETE — clear all favorites (optionally by post type).
+        register_rest_route(self::NAMESPACE, self::ROUTE, [
+            'methods'             => WP_REST_Server::DELETABLE,
+            'callback'            => [self::class, 'clear_favorites'],
+            'permission_callback' => [self::class, 'check_permission'],
+            'args'                => [
+                'post_types' => [
+                    'type'              => 'array',
+                    'default'           => [],
+                    'sanitize_callback' => fn($val): array => array_map('sanitize_key', (array) $val),
+                ],
+            ],
+        ]);
+
+        // DELETE — remove a single favorite.
         register_rest_route(self::NAMESPACE, self::ROUTE . '/(?P<postId>[\d]+)', [
             'methods'             => WP_REST_Server::DELETABLE,
             'callback'            => [self::class, 'remove_favorite'],
@@ -91,6 +106,7 @@ final class FavoritesController {
                     'required'          => true,
                     'type'              => 'integer',
                     'validate_callback' => fn($val): bool => is_numeric($val) && (int) $val > 0,
+                    'sanitize_callback' => 'absint',
                 ],
             ],
         ]);
@@ -136,6 +152,15 @@ final class FavoritesController {
     }
 
     /**
+     * DELETE /wpef/v1/favorites (no postId — clear all/filtered)
+     */
+    public static function clear_favorites(WP_REST_Request $request): WP_REST_Response {
+        $post_types = $request->get_param('post_types');
+        $favorites  = Favorites::clear(get_current_user_id(), is_array($post_types) ? $post_types : []);
+        return new WP_REST_Response(['favorites' => $favorites], 200);
+    }
+
+    /**
      * PUT /wpef/v1/favorites
      */
     public static function sync_favorites(WP_REST_Request $request): WP_REST_Response {
@@ -158,10 +183,10 @@ final class FavoritesController {
             'global' => Favorites::global_count(),
         ];
 
-        // Per-post counts.
+        // Per-post counts (capped at 500 per request to prevent abuse).
         if (!empty($post_ids)) {
             $post_counts = [];
-            foreach ($post_ids as $pid) {
+            foreach (array_slice($post_ids, 0, 500) as $pid) {
                 if ($pid > 0) {
                     $post_counts[$pid] = Favorites::get_post_count($pid);
                 }
@@ -169,10 +194,10 @@ final class FavoritesController {
             $data['posts'] = $post_counts;
         }
 
-        // Per-type global counts.
+        // Per-type global counts (capped to prevent abuse).
         if (!empty($post_types)) {
             $type_counts = [];
-            foreach ($post_types as $pt) {
+            foreach (array_slice($post_types, 0, 50) as $pt) {
                 if ($pt !== '') {
                     $type_counts[$pt] = Favorites::global_count_by_type($pt);
                 }
@@ -181,6 +206,41 @@ final class FavoritesController {
         }
 
         return new WP_REST_Response($data, 200);
+    }
+
+    /**
+     * Sanitize the favorites array from the PUT sync endpoint.
+     *
+     * Each item must have postId (int > 0) and postType (string).
+     * Invalid items are silently dropped.
+     *
+     * @param mixed $value Raw input.
+     * @return array<int, array{postId: int, postType: string}>
+     */
+    public static function sanitize_favorites_array(mixed $value): array {
+        if (!is_array($value)) {
+            return [];
+        }
+
+        $clean = [];
+
+        foreach ($value as $item) {
+            if (!is_array($item)) {
+                continue;
+            }
+
+            $post_id   = isset($item['postId']) ? absint($item['postId']) : 0;
+            $post_type = isset($item['postType']) ? sanitize_key($item['postType']) : '';
+
+            if ($post_id > 0 && $post_type !== '') {
+                $clean[] = [
+                    'postId'   => $post_id,
+                    'postType' => $post_type,
+                ];
+            }
+        }
+
+        return $clean;
     }
 
     /**

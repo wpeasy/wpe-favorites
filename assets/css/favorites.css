@@ -2,48 +2,185 @@
  * WPE Favorites — button styles.
  */
 
+/* ================================================================== */
+/*  Structural — layout, visibility, positioning (not in a layer)      */
+/* ================================================================== */
+
 .wpef-button {
     display: inline-flex;
     align-items: center;
     justify-content: center;
     padding: 0;
-    border: none;
-    background: transparent;
-    cursor: pointer;
-    color: currentColor;
-    opacity: 0.5;
-    transition: opacity 0.2s ease, color 0.2s ease;
 }
 
-.wpef-button:hover {
-    opacity: 0.8;
+/* State container layout + dual-state visibility */
+.wpef-button__state {
+    align-items: center;
+    gap: 0.4em;
 }
 
-.wpef-button--active {
-    opacity: 1;
-    color: #e53e3e;
+.wpef-button__state--inactive {
+    display: inline-flex;
 }
 
-.wpef-button--active:hover {
-    opacity: 0.9;
+.wpef-button__state--active {
+    display: none;
 }
 
-/* Heart icon via CSS — no SVG dependency */
-.wpef-icon--heart {
+.wpef-button--active .wpef-button__state--inactive {
+    display: none;
+}
+
+.wpef-button--active .wpef-button__state--active {
+    display: inline-flex;
+}
+
+.wpef-button__label {
+    white-space: nowrap;
+}
+
+/* Icon container */
+.wpef-button__icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+/* Mask-icon base */
+.wpef-icon--heart,
+.wpef-icon--heart-filled {
     display: inline-block;
-    width: 24px;
-    height: 24px;
-    background: currentColor;
-    -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z'/%3E%3C/svg%3E");
-    mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z'/%3E%3C/svg%3E");
     -webkit-mask-size: contain;
     mask-size: contain;
     -webkit-mask-repeat: no-repeat;
     mask-repeat: no-repeat;
 }
 
-/* Filled heart when active */
-.wpef-button--active .wpef-icon--heart {
-    -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='currentColor'%3E%3Cpath d='M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z'/%3E%3C/svg%3E");
-    mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='currentColor'%3E%3Cpath d='M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z'/%3E%3C/svg%3E");
+/* Clear button */
+.wpef-clear {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* Toast positioning */
+.wpef-toast {
+    position: fixed;
+    bottom: 24px;
+    left: 50%;
+    pointer-events: none;
+    max-width: 90vw;
+    z-index: 999999;
+}
+
+.wpef-toast--visible {
+    pointer-events: auto;
+}
+
+/* ================================================================== */
+/*  Styling — cosmetic / overridable                                   */
+/* ================================================================== */
+
+@layer wpef {
+
+    .wpef-button {
+        border: none;
+        background: transparent;
+        cursor: pointer;
+        color: currentColor;
+        opacity: 0.5;
+        transition: opacity 0.2s ease, color 0.2s ease;
+    }
+
+    .wpef-button:hover {
+        opacity: 0.8;
+    }
+
+    .wpef-button--active {
+        opacity: 1;
+        color: #e53e3e;
+    }
+
+    .wpef-button--active:hover {
+        opacity: 0.9;
+    }
+
+    /* Heart icon via CSS mask — no SVG dependency */
+    .wpef-icon--heart {
+        width: 24px;
+        height: 24px;
+        background: currentColor;
+        -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z'/%3E%3C/svg%3E");
+        mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z'/%3E%3C/svg%3E");
+    }
+
+    /* Filled heart when active (default icon mode) */
+    .wpef-button--active .wpef-icon--heart {
+        -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='currentColor'%3E%3Cpath d='M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z'/%3E%3C/svg%3E");
+        mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='currentColor'%3E%3Cpath d='M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z'/%3E%3C/svg%3E");
+    }
+
+    /* Filled heart — standalone class for dual-state markup */
+    .wpef-icon--heart-filled {
+        width: 24px;
+        height: 24px;
+        background: currentColor;
+        -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='currentColor'%3E%3Cpath d='M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z'/%3E%3C/svg%3E");
+        mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='currentColor'%3E%3Cpath d='M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z'/%3E%3C/svg%3E");
+    }
+
+    /* Clear button */
+    .wpef-clear {
+        border: 1px solid currentColor;
+        background: transparent;
+        cursor: pointer;
+        color: currentColor;
+        padding: 0.5em 1em;
+        border-radius: 4px;
+        font: inherit;
+        transition: background 0.2s ease, color 0.2s ease;
+    }
+
+    .wpef-clear:hover {
+        background: rgba(0, 0, 0, 0.05);
+    }
+
+    .wpef-clear--confirming {
+        color: #e53e3e;
+        border-color: #e53e3e;
+    }
+
+    .wpef-clear--confirming:hover {
+        background: #e53e3e;
+        color: #fff;
+    }
+
+    /* Custom icon SVG sizing */
+    .wpef-button__icon svg {
+        width: 1em;
+        height: 1em;
+    }
+
+    /* Toast appearance */
+    .wpef-toast {
+        transform: translateX(-50%) translateY(20px);
+        padding: 12px 20px;
+        border-radius: 6px;
+        font-size: 14px;
+        line-height: 1.4;
+        opacity: 0;
+        transition: opacity 0.3s ease, transform 0.3s ease;
+    }
+
+    .wpef-toast--visible {
+        opacity: 1;
+        transform: translateX(-50%) translateY(0);
+    }
+
+    .wpef-toast--error {
+        background: #991b1b;
+        color: #fff;
+    }
+
 }

@@ -62,30 +62,52 @@ final class Query_Favorites {
      * @return array<string, mixed>
      */
     public static function add_controls(array $controls): array {
-        $required = [['query.objectType', '=', self::QUERY_TYPE]];
+        $required = [['query.objectType', '=', self::QUERY_TYPE], ['hasLoop', '!=', false]];
 
         $post_type_options = self::get_post_type_options();
 
-        $controls['wpefFavoritesInfo'] = [
-            'group'       => 'query',
+        $new_controls = [];
+
+        $new_controls['wpefFavoritesInfo'] = [
+            'tab'         => 'content',
             'label'       => esc_html__('Info', 'wpef'),
             'type'        => 'info',
             'content'     => esc_html__('Loops through the current logged-in user\'s favorited posts. Anonymous visitors see no results.', 'wpef'),
             'required'    => $required,
         ];
 
-        $controls['wpefFavoritesPostType'] = [
-            'group'       => 'query',
+        $new_controls['wpefFavoritesPostTypeSource'] = [
+            'tab'         => 'content',
+            'label'       => esc_html__('Post Type Source', 'wpef'),
+            'type'        => 'select',
+            'options'     => [
+                'select'  => esc_html__('Select', 'wpef'),
+                'dynamic' => esc_html__('Dynamic', 'wpef'),
+            ],
+            'default'     => 'select',
+            'required'    => $required,
+        ];
+
+        $new_controls['wpefFavoritesPostType'] = [
+            'tab'         => 'content',
             'label'       => esc_html__('Post Type', 'wpef'),
             'type'        => 'select',
             'options'     => $post_type_options,
             'default'     => '',
             'placeholder' => esc_html__('All', 'wpef'),
-            'required'    => $required,
+            'required'    => array_merge($required, [['wpefFavoritesPostTypeSource', '!=', 'dynamic']]),
         ];
 
-        $controls['wpefFavoritesPerPage'] = [
-            'group'       => 'query',
+        $new_controls['wpefFavoritesPostTypeDynamic'] = [
+            'tab'         => 'content',
+            'label'       => esc_html__('Post Type (Dynamic)', 'wpef'),
+            'type'        => 'text',
+            'placeholder' => esc_html__('e.g. {cf_post_type}', 'wpef'),
+            'required'    => array_merge($required, [['wpefFavoritesPostTypeSource', '=', 'dynamic']]),
+        ];
+
+        $new_controls['wpefFavoritesPerPage'] = [
+            'tab'         => 'content',
             'label'       => esc_html__('Posts Per Page', 'wpef'),
             'type'        => 'number',
             'default'     => -1,
@@ -94,8 +116,8 @@ final class Query_Favorites {
             'required'    => $required,
         ];
 
-        $controls['wpefFavoritesOrderby'] = [
-            'group'       => 'query',
+        $new_controls['wpefFavoritesOrderby'] = [
+            'tab'         => 'content',
             'label'       => esc_html__('Order By', 'wpef'),
             'type'        => 'select',
             'options'     => [
@@ -110,8 +132,8 @@ final class Query_Favorites {
             'required'    => $required,
         ];
 
-        $controls['wpefFavoritesOrder'] = [
-            'group'       => 'query',
+        $new_controls['wpefFavoritesOrder'] = [
+            'tab'         => 'content',
             'label'       => esc_html__('Order', 'wpef'),
             'type'        => 'select',
             'options'     => [
@@ -122,7 +144,31 @@ final class Query_Favorites {
             'required'    => $required,
         ];
 
-        return $controls;
+        return self::insert_after_key($controls, 'query', $new_controls);
+    }
+
+    /**
+     * Insert new controls after a specific key in the controls array.
+     *
+     * This ensures controls appear in the correct position in the
+     * Bricks panel rather than at the bottom.
+     *
+     * @param array<string, mixed> $controls     Existing controls.
+     * @param string               $after_key    Key to insert after.
+     * @param array<string, mixed> $new_controls Controls to insert.
+     * @return array<string, mixed>
+     */
+    private static function insert_after_key(array $controls, string $after_key, array $new_controls): array {
+        $position = array_search($after_key, array_keys($controls), true);
+
+        if ($position === false) {
+            return array_merge($controls, $new_controls);
+        }
+
+        $before = array_slice($controls, 0, $position + 1, true);
+        $after  = array_slice($controls, $position + 1, null, true);
+
+        return array_merge($before, $new_controls, $after);
     }
 
     /**
@@ -156,8 +202,14 @@ final class Query_Favorites {
             return [];
         }
 
-        $settings  = $query_obj->settings ?? [];
-        $post_type = sanitize_key($settings['wpefFavoritesPostType'] ?? '');
+        $settings    = $query_obj->settings ?? [];
+        $type_source = $settings['wpefFavoritesPostTypeSource'] ?? 'select';
+
+        if ($type_source === 'dynamic' && !empty($settings['wpefFavoritesPostTypeDynamic'])) {
+            $post_type = sanitize_key(bricks_render_dynamic_data($settings['wpefFavoritesPostTypeDynamic']));
+        } else {
+            $post_type = sanitize_key($settings['wpefFavoritesPostType'] ?? '');
+        }
 
         // Filter favorites by post type if specified.
         if ($post_type !== '') {

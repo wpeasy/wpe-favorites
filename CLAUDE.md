@@ -46,9 +46,46 @@ WPE Favorites adds a user favorites system to WordPress. Users can favorite any 
   - `wpef:synced` — login merge completed (detail: `{ favorites }`)
 
 ### Frontend Output
-- Heart icon toggle button
-- Basic `[wpef_button]` shortcode as universal fallback
+- Heart icon toggle button (default, zero-config)
+- `[wpef_button]` shortcode with optional labels and custom icons
 - Bricks Builder element as first builder integration
+
+### Button Labels & Custom Icons
+- **Default:** icon-only heart, identical to original markup
+- **With labels:** dual-state containers shown/hidden via CSS (no JS changes)
+- **Shortcode attributes:** `label`, `active_label`, `icon_class`, `active_icon_class`
+- **Bricks element:** uses native `'type' => 'icon'` control (font icons + SVG), rendered via `Element::render_icon()` and passed as `icon_html`/`active_icon_html`
+- **Accessibility:** `aria-label` only on icon-only buttons; when labels are present, the visible text serves as the accessible name. `aria-pressed` toggled on all buttons.
+- **CSS architecture:** structural CSS (layout, visibility) outside any layer; styling CSS (colors, opacity, icons) in `@layer wpef` for easy overriding
+
+### Shortcode Reference
+
+`[wpef_button]` — renders the favorite toggle button.
+
+| Attribute | Default | Description |
+|-----------|---------|-------------|
+| `post_id` | Current post | Post ID to favorite |
+| `label` | *(empty)* | Inactive state label text |
+| `active_label` | *(empty)* | Active state label text (falls back to `label`) |
+| `icon_class` | *(empty)* | CSS icon class for inactive state (e.g. `fa-regular fa-heart`) |
+| `active_icon_class` | *(empty)* | CSS icon class for active state (e.g. `fa-solid fa-heart`) |
+
+Programmatic-only params (not available in shortcode attributes):
+- `icon_html` / `active_icon_html` — pre-rendered icon HTML (used by Bricks integration)
+
+Filter: `wpef_button_atts` — modify shortcode attributes before rendering.
+
+### Bricks Builder Integration
+
+**Elements:**
+- `Element_Favorite_Button` — favorite toggle with grouped controls (Inactive, Active, Hover) for labels, icons, and typography
+- `Element_User_Count` — displays current user's favorite count with post type filtering (multi-select or dynamic data)
+
+**Custom Queries:**
+- `wpef_favorites` — loops through current user's favorited posts (with post type filter supporting dynamic data via Source toggle)
+- `wpef_post_types` — loops through favorites-enabled post types (multi-select filter, returns array data for `{query_array}` tags)
+
+See **BRICKS_NOTES.md** for full control and query documentation.
 
 ### Modularity
 - **PHP:** Feature modules register via a central registry (e.g., `Plugin::register_module()`)

@@ -26,11 +26,13 @@ final class Plugin {
      */
     public static function init(): void {
         Admin\Settings::init();
+        Admin\Documentation::init();
         REST\FavoritesController::init();
         Modules\Shortcode::init();
         Modules\CountShortcodes::init();
         Modules\FavoritesLoop::init();
         Modules\PostTypesLoop::init();
+        Modules\ClearShortcode::init();
         Modules\Cleanup::init();
         add_action('after_setup_theme', [Integrations\Bricks\BricksIntegration::class, 'init']);
 

@@ -57,6 +57,7 @@ final class BricksIntegration {
             WPEF_PLUGIN_DIR . 'src/Integrations/Bricks/Element_User_Count.php',
             WPEF_PLUGIN_DIR . 'src/Integrations/Bricks/Element_Post_Count.php',
             WPEF_PLUGIN_DIR . 'src/Integrations/Bricks/Element_Global_Count.php',
+            WPEF_PLUGIN_DIR . 'src/Integrations/Bricks/Element_Clear_Button.php',
         ];
 
         foreach ($element_files as $file) {

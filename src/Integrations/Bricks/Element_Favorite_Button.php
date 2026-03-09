@@ -69,6 +69,23 @@ class Element_Favorite_Button extends \Bricks\Element {
     }
 
     /**
+     * Register control groups.
+     */
+    public function set_control_groups(): void {
+        $this->control_groups['inactive'] = [
+            'title' => esc_html__('Inactive', 'wpef'),
+        ];
+
+        $this->control_groups['active'] = [
+            'title' => esc_html__('Active', 'wpef'),
+        ];
+
+        $this->control_groups['hover'] = [
+            'title' => esc_html__('Hover', 'wpef'),
+        ];
+    }
+
+    /**
      * Register element controls.
      */
     public function set_controls(): void {
@@ -80,47 +97,82 @@ class Element_Favorite_Button extends \Bricks\Element {
             'description' => esc_html__('Leave empty to use the current post ID.', 'wpef'),
         ];
 
-        $this->controls['icon_size'] = [
-            'tab'     => 'content',
-            'label'   => esc_html__('Icon Size', 'wpef'),
-            'type'    => 'number',
-            'units'   => true,
-            'default' => '24px',
-            'css'     => [
+        // -- Inactive -----------------------------------------------
+
+        $this->controls['label'] = [
+            'group'       => 'inactive',
+            'label'       => esc_html__('Label', 'wpef'),
+            'type'        => 'text',
+            'placeholder' => esc_html__('e.g. Add to Favorites', 'wpef'),
+        ];
+
+        $this->controls['labelTypography'] = [
+            'group' => 'inactive',
+            'label' => esc_html__('Label Typography', 'wpef'),
+            'type'  => 'typography',
+            'css'   => [
                 [
-                    'property' => 'width',
-                    'selector' => '.wpef-icon--heart',
-                ],
-                [
-                    'property' => 'height',
-                    'selector' => '.wpef-icon--heart',
+                    'property' => 'font',
+                    'selector' => '.wpef-button__state--inactive .wpef-button__label',
                 ],
             ],
         ];
 
-        $this->controls['color'] = [
-            'tab'   => 'content',
-            'label' => esc_html__('Color', 'wpef'),
-            'type'  => 'color',
+        $this->controls['icon'] = [
+            'group' => 'inactive',
+            'label' => esc_html__('Icon', 'wpef'),
+            'type'  => 'icon',
             'css'   => [
                 [
                     'property' => 'color',
-                    'selector' => '',
+                    'selector' => '.wpef-button__state--inactive .wpef-button__icon',
                 ],
             ],
         ];
 
-        $this->controls['active_color'] = [
-            'tab'     => 'content',
-            'label'   => esc_html__('Active Color', 'wpef'),
-            'type'    => 'color',
-            'default' => [
-                'hex' => '#e53e3e',
+        // -- Active -------------------------------------------------
+
+        $this->controls['active_label'] = [
+            'group'       => 'active',
+            'label'       => esc_html__('Label', 'wpef'),
+            'type'        => 'text',
+            'placeholder' => esc_html__('e.g. Remove from Favorites', 'wpef'),
+        ];
+
+        $this->controls['activeLabelTypography'] = [
+            'group' => 'active',
+            'label' => esc_html__('Label Typography', 'wpef'),
+            'type'  => 'typography',
+            'css'   => [
+                [
+                    'property' => 'font',
+                    'selector' => '.wpef-button__state--active .wpef-button__label',
+                ],
             ],
-            'css'     => [
+        ];
+
+        $this->controls['active_icon'] = [
+            'group' => 'active',
+            'label' => esc_html__('Icon', 'wpef'),
+            'type'  => 'icon',
+            'css'   => [
                 [
                     'property' => 'color',
-                    'selector' => '.wpef-button--active',
+                    'selector' => '.wpef-button__state--active .wpef-button__icon',
+                ],
+            ],
+        ];
+
+        // -- Hover --------------------------------------------------
+
+        $this->controls['hoverTypography'] = [
+            'group' => 'hover',
+            'label' => esc_html__('Typography', 'wpef'),
+            'type'  => 'typography',
+            'css'   => [
+                [
+                    'property' => 'font',
+                    'selector' => '.wpef-button:hover',
                 ],
             ],
         ];
@@ -135,11 +187,31 @@ class Element_Favorite_Button extends \Bricks\Element {
         $settings = $this->settings;
         $post_id  = !empty($settings['post_id']) ? absint($settings['post_id']) : 0;
 
-        $root_classes   = ['wpef-bricks-favorite'];
+        $shortcode_atts = [
+            'post_id' => $post_id ?: get_the_ID(),
+        ];
+
+        // Labels (support dynamic data tags).
+        if (!empty($settings['label'])) {
+            $shortcode_atts['label'] = $this->render_dynamic_data($settings['label']);
+        }
+        if (!empty($settings['active_label'])) {
+            $shortcode_atts['active_label'] = $this->render_dynamic_data($settings['active_label']);
+        }
+
+        // Icons — render via Bricks Element helper (handles font icons + SVG).
+        if (!empty($settings['icon'])) {
+            $shortcode_atts['icon_html'] = self::render_icon($settings['icon']);
+        }
+        if (!empty($settings['active_icon'])) {
+            $shortcode_atts['active_icon_html'] = self::render_icon($settings['active_icon']);
+        }
+
+        $root_classes = ['wpef-bricks-favorite'];
         $this->set_attribute('_root', 'class', $root_classes);
 
         echo "<div {$this->render_attributes('_root')}>";
-        echo Shortcode::render(['post_id' => $post_id ?: get_the_ID()]);
+        echo Shortcode::render($shortcode_atts);
         echo '</div>';
     }
 

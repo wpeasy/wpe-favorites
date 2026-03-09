@@ -125,6 +125,43 @@ final class Favorites {
     }
 
     /**
+     * Clear all favorites for a user, optionally filtered by post types.
+     *
+     * @param int      $user_id    WordPress user ID.
+     * @param string[] $post_types Optional post types to clear. Empty = clear all.
+     * @return array<int, array{postId: int, postType: string}> Remaining favorites.
+     */
+    public static function clear(int $user_id, array $post_types = []): array {
+        $favorites = self::get($user_id);
+
+        if (empty($favorites)) {
+            return [];
+        }
+
+        if (empty($post_types)) {
+            // Clear everything — decrement all post counts.
+            foreach ($favorites as $fav) {
+                self::decrement_post_count($fav['postId']);
+            }
+            update_user_meta($user_id, self::META_KEY, []);
+            return [];
+        }
+
+        // Selective clear — remove only matching post types.
+        $remaining = [];
+        foreach ($favorites as $fav) {
+            if (in_array($fav['postType'], $post_types, true)) {
+                self::decrement_post_count($fav['postId']);
+            } else {
+                $remaining[] = $fav;
+            }
+        }
+
+        update_user_meta($user_id, self::META_KEY, $remaining);
+        return $remaining;
+    }
+
+    /**
      * Remove a post ID from ALL users' favorites.
      *
      * Used when a post is permanently deleted.
