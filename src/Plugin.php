@@ -36,6 +36,7 @@ final class Plugin {
         Modules\Cleanup::init();
         add_action('after_setup_theme', [Integrations\Bricks\BricksIntegration::class, 'init']);
 
+        Updater\GitHubUpdater::init();
         add_action('wp_enqueue_scripts', [self::class, 'register_frontend_assets']);
     }
 

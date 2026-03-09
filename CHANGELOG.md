@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.0.1 — 2026-03-09
+
+### Added
+
+- **GitHub auto-updater** — checks for new releases on the public GitHub repo and offers one-click updates from the WordPress Plugins page
+
+---
+
 ## 1.0.0 — 2026-03-09
 
 Initial release.
