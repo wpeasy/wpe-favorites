@@ -76,15 +76,18 @@ final class Shortcode {
 
         $has_custom = $label || $active_label || $icon_class || $active_icon_class || $icon_html || $active_icon_html;
 
+        $post_title = get_the_title($post);
+
         // Default output — identical to original markup.
         if (!$has_custom) {
             return sprintf(
-                '<button class="wpef-button" data-wpef-post-id="%d" data-wpef-post-type="%s" aria-label="%s">'
+                '<button class="wpef-button" data-wpef-post-id="%d" data-wpef-post-type="%s" data-wpef-post-title="%s" aria-label="%s" aria-pressed="false">'
                 . '<span class="wpef-button__icon wpef-icon wpef-icon--heart"></span>'
                 . '</button>',
                 $post_id,
                 esc_attr($post_type),
-                esc_attr__('Toggle favorite', 'wpef')
+                esc_attr($post_title),
+                esc_attr(sprintf(__('Add %s to favorites', 'wpef'), $post_title))
             );
         }
 
@@ -100,13 +103,17 @@ final class Shortcode {
         $has_label = $label || $active_label;
 
         // aria-label only when icon-only (no visible text to serve as accessible name).
-        $aria_attr = $has_label ? '' : sprintf(' aria-label="%s"', esc_attr__('Toggle favorite', 'wpef'));
+        $aria_attr = $has_label ? '' : sprintf(
+            ' aria-label="%s"',
+            esc_attr(sprintf(__('Add %s to favorites', 'wpef'), $post_title))
+        );
 
         $html  = sprintf(
-            '<button class="%s" data-wpef-post-id="%d" data-wpef-post-type="%s"%s>',
+            '<button class="%s" data-wpef-post-id="%d" data-wpef-post-type="%s" data-wpef-post-title="%s"%s aria-pressed="false">',
             esc_attr($btn_classes),
             $post_id,
             esc_attr($post_type),
+            esc_attr($post_title),
             $aria_attr
         );
 

@@ -5,6 +5,7 @@
   import TabMain from './tabs/TabMain.svelte';
   import TabShortcodes from './tabs/TabShortcodes.svelte';
   import TabBricks from './tabs/TabBricks.svelte';
+  import TabJavaScript from './tabs/TabJavaScript.svelte';
 
   let activeTab = $state('main');
 </script>
@@ -31,6 +32,11 @@
           content: shortcodesContent,
         },
         {
+          id: 'javascript',
+          label: 'JavaScript & REST',
+          content: javascriptContent,
+        },
+        {
           id: 'bricks',
           label: 'Bricks Integration',
           content: bricksContent,
@@ -46,6 +52,10 @@
 
 {#snippet shortcodesContent()}
   <TabShortcodes />
+{/snippet}
+
+{#snippet javascriptContent()}
+  <TabJavaScript />
 {/snippet}
 
 {#snippet bricksContent()}

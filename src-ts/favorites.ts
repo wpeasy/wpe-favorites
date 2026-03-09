@@ -333,6 +333,15 @@ function updateButton(btn: HTMLElement): void {
   const active = isFavorited(postId);
   btn.classList.toggle('wpef-button--active', active);
   btn.setAttribute('aria-pressed', String(active));
+
+  // Update aria-label with post title when no visible label text exists.
+  const title = btn.dataset.wpefPostTitle;
+  if (title && !btn.querySelector('.wpef-button__label')) {
+    const label = active
+      ? `Remove ${title} from favorites`
+      : `Add ${title} to favorites`;
+    btn.setAttribute('aria-label', label);
+  }
 }
 
 /* ------------------------------------------------------------------ */
@@ -464,13 +473,27 @@ function handleClearClick(btn: HTMLElement): void {
   btn.textContent = confirmText;
   btn.classList.add('wpef-clear--confirming');
 
+  // Cancel on Escape key.
+  const onKeydown = (e: KeyboardEvent) => {
+    if (e.key === 'Escape') {
+      cancelClearConfirm(btn);
+      btn.removeEventListener('keydown', onKeydown);
+    }
+  };
+  btn.addEventListener('keydown', onKeydown);
+
   // Auto-revert after 3 seconds.
   setTimeout(() => {
     if (btn.classList.contains('wpef-clear--confirming')) {
-      btn.classList.remove('wpef-clear--confirming');
-      btn.textContent = btn.dataset.wpefClearLabel || '';
+      cancelClearConfirm(btn);
+      btn.removeEventListener('keydown', onKeydown);
     }
   }, 3000);
+}
+
+function cancelClearConfirm(btn: HTMLElement): void {
+  btn.classList.remove('wpef-clear--confirming');
+  btn.textContent = btn.dataset.wpefClearLabel || '';
 }
 
 function parseClearTypes(btn: HTMLElement): string[] {

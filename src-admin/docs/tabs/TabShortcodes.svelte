@@ -162,6 +162,32 @@
     {/snippet}
   </Card>
 
+  <Card title="Clear Favorites" subtitle="[wpef_clear]">
+    {#snippet children()}
+      <p>Renders a button that clears all (or filtered) favorites for the current user.</p>
+      <div class="wpef-code-block">
+        <pre><code>[wpef_clear]</code></pre>
+      </div>
+
+      <h4>Attributes</h4>
+      <table class="wpef-attr-table">
+        <thead>
+          <tr><th>Attribute</th><th>Default</th><th>Description</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><code>post_type</code></td><td><em>(all)</em></td><td>Comma-separated post types to clear (empty clears all)</td></tr>
+          <tr><td><code>label</code></td><td>Clear Favorites</td><td>Button label text</td></tr>
+          <tr><td><code>confirm</code></td><td><em>(none)</em></td><td>Confirmation text &mdash; enables double opt-in (user must click twice)</td></tr>
+        </tbody>
+      </table>
+
+      <h4>Examples</h4>
+      <div class="wpef-code-block">
+        <pre><code>{@html codeClear}</code></pre>
+      </div>
+    {/snippet}
+  </Card>
+
   <Card title="Post Types Loop" subtitle="[wpef_post_types]">
     {#snippet children()}
       <p>Renders a list of post types that have favorites enabled.</p>
@@ -230,6 +256,18 @@ You have [wpef_user_count post_type="product"] favorited products.`;
 [wpef_field field="excerpt"]   &rarr; "Post excerpt text..."
 [wpef_field field="date"]      &rarr; "March 9, 2026"
 [wpef_field field="thumbnail"] &rarr; &lt;img src="..." /&gt;`;
+
+  const codeClear = `&lt;!-- Clear all favorites --&gt;
+[wpef_clear]
+
+&lt;!-- Custom label --&gt;
+[wpef_clear label="Reset All"]
+
+&lt;!-- Clear only products --&gt;
+[wpef_clear post_type="product" label="Clear Saved Products"]
+
+&lt;!-- With double opt-in confirmation --&gt;
+[wpef_clear confirm="Are you sure?" label="Clear Favorites"]`;
 
   const codePostTypes = `&lt;!-- Simple list --&gt;
 [wpef_post_types]

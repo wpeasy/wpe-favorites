@@ -1,5 +1,20 @@
 # Changelog
 
+## 1.0.3 — 2026-03-09
+
+### Improved
+
+- **Favorite button aria-labels** — dynamic labels based on post title and state ("Add {title} to favorites" / "Remove {title} from favorites")
+- **`aria-pressed` in server HTML** — favorite buttons render with `aria-pressed="false"` before JS loads
+- **Clear button keyboard support** — Escape key cancels the confirmation state
+- **Favorites loop list** — self-closing `[wpef_favorites]` now has `aria-label="Favorite posts"` for screen readers
+
+### Added
+
+- **Documentation tab** — JavaScript API & REST reference moved to its own "JavaScript & REST" tab
+
+---
+
 ## 1.0.2 — 2026-03-09
 
 ### Added

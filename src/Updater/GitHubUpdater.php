@@ -69,8 +69,20 @@ final class GitHubUpdater {
 
         $github_version = self::normalize_version($release['tag_name'] ?? '');
 
+        // If cached release is not newer, try a fresh fetch in case
+        // a new release was published since the last cache.
         if (!version_compare($github_version, WPEF_VERSION, '>')) {
-            return $transient;
+            $release = self::get_cached_release(true);
+
+            if (!$release) {
+                return $transient;
+            }
+
+            $github_version = self::normalize_version($release['tag_name'] ?? '');
+
+            if (!version_compare($github_version, WPEF_VERSION, '>')) {
+                return $transient;
+            }
         }
 
         $download_url = self::get_zip_url($release);
@@ -221,13 +233,16 @@ final class GitHubUpdater {
     /**
      * Get the latest release, from cache or GitHub API.
      *
+     * @param bool $force_refresh Skip cache and fetch fresh data.
      * @return array<string, mixed>|null Release data or null on failure.
      */
-    private static function get_cached_release(): ?array {
-        $cached = get_transient(self::CACHE_KEY);
+    private static function get_cached_release(bool $force_refresh = false): ?array {
+        if (!$force_refresh) {
+            $cached = get_transient(self::CACHE_KEY);
 
-        if ($cached !== false) {
-            return $cached;
+            if ($cached !== false) {
+                return $cached;
+            }
         }
 
         $url = sprintf('%s/repos/%s/%s/releases/latest', self::API_BASE, self::OWNER, self::REPO);

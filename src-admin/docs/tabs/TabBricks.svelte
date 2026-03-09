@@ -14,7 +14,7 @@
       <p>The following custom Bricks elements are available:</p>
 
       <h4>Favorite Button</h4>
-      <p>A toggle button for favoriting posts. Auto-detects the current post inside query loops. Controls are organized into three groups:</p>
+      <p>A toggle button for favoriting posts. Auto-detects the current post inside query loops, or set a specific <strong>Post ID</strong> manually. Controls are organized into three groups:</p>
       <ul>
         <li><strong>Inactive</strong> &mdash; Label, Label Typography, and Icon (with color) for the default state</li>
         <li><strong>Active</strong> &mdash; Label, Label Typography, and Icon (with color) for the favorited state</li>
@@ -22,14 +22,22 @@
       </ul>
       <p>Icons use the native Bricks icon picker &mdash; choose from Font Awesome, Ionicons, Themify, custom SVGs, or uploaded icon sets. When no custom icons or labels are set, the button renders a default heart icon.</p>
 
+      <h4>Clear Favorites</h4>
+      <p>A button that clears all (or filtered) favorites for the current user. Controls are organized into two groups:</p>
+      <ul>
+        <li><strong>Button</strong> &mdash; Label and Typography</li>
+        <li><strong>Confirmation</strong> &mdash; Confirmation text (double opt-in) and Typography</li>
+      </ul>
+      <p>Filter by post type using a <strong>Post Type Source</strong> toggle &mdash; choose between a multi-select dropdown or a dynamic data token. The confirmation text defaults to &ldquo;Are you sure?&rdquo; &mdash; the user must click twice to confirm.</p>
+
       <h4>User Count</h4>
-      <p>Displays the current user's total favorites count. Filter by post type using a multi-select dropdown or a dynamic data token.</p>
+      <p>Displays the current user's total favorites count. Filter by post type using a <strong>Post Type Source</strong> toggle &mdash; choose between a multi-select dropdown or a dynamic data token.</p>
 
       <h4>Post Count</h4>
-      <p>Displays how many users have favorited a specific post. Automatically detects the current post inside a query loop.</p>
+      <p>Displays how many users have favorited a specific post. Auto-detects the current post inside query loops. Use the <strong>Post ID Source</strong> toggle to switch between a number input or a dynamic data token.</p>
 
       <h4>Global Count</h4>
-      <p>Displays the total favorites count across all users. Optionally filter by post type.</p>
+      <p>Displays the total favorites count across all users. Filter by post type using a <strong>Post Type Source</strong> toggle &mdash; choose between a multi-select dropdown or a dynamic data token.</p>
     {/snippet}
   </Card>
 

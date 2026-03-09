@@ -133,7 +133,7 @@ final class FavoritesLoop {
                 $css_class .= ' ' . esc_attr($atts['class']);
             }
 
-            $output = '<ul class="' . $css_class . '">';
+            $output = '<ul class="' . $css_class . '" aria-label="' . esc_attr__('Favorite posts', 'wpef') . '">';
 
             while ($query->have_posts()) {
                 $query->the_post();
