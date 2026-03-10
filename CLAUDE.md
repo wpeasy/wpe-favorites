@@ -87,6 +87,14 @@ Filter: `wpef_button_atts` — modify shortcode attributes before rendering.
 
 See **BRICKS_NOTES.md** for full control and query documentation.
 
+### Bricks Dynamic Data & Conditions
+- **Dynamic data tags** registered via `bricks/dynamic_tags_list`, rendered via `bricks/dynamic_data/render_tag` and `render_content`
+- **Conditions** registered via `bricks/conditions/groups`, `bricks/conditions/options`, evaluated via `bricks/conditions/result`
+- All Bricks dynamic data logic lives in `src/Integrations/Bricks/DynamicData.php`
+- `{wpef_user_count}` defaults to current post type; use `:all` for total, or `:slug` for specific type
+- `{wpef_post_count}` defaults to current post; use `:post_id` for specific post
+- `{wpef_global_count}` defaults to all types; use `:post_type` for specific type
+
 ### Modularity
 - **PHP:** Feature modules register via a central registry (e.g., `Plugin::register_module()`)
 - **JS:** Each feature is a separate ES module, loaded only when needed

@@ -30,14 +30,55 @@
       </ul>
       <p>Filter by post type using a <strong>Post Type Source</strong> toggle &mdash; choose between a multi-select dropdown or a dynamic data token. The confirmation text defaults to &ldquo;Are you sure?&rdquo; &mdash; the user must click twice to confirm.</p>
 
-      <h4>User Count</h4>
+      <h4>User Favorite Count</h4>
       <p>Displays the current user's total favorites count. Filter by post type using a <strong>Post Type Source</strong> toggle &mdash; choose between a multi-select dropdown or a dynamic data token.</p>
 
-      <h4>Post Count</h4>
+      <h4>Post Favorite Count</h4>
       <p>Displays how many users have favorited a specific post. Auto-detects the current post inside query loops. Use the <strong>Post ID Source</strong> toggle to switch between a number input or a dynamic data token.</p>
 
-      <h4>Global Count</h4>
+      <h4>Global Favorite Count</h4>
       <p>Displays the total favorites count across all users. Filter by post type using a <strong>Post Type Source</strong> toggle &mdash; choose between a multi-select dropdown or a dynamic data token.</p>
+    {/snippet}
+  </Card>
+
+  <Card title="Dynamic Data Tags">
+    {#snippet children()}
+      <p>Use these tokens anywhere Bricks accepts dynamic data &mdash; text fields, links, conditions, etc. They appear under the <strong>WPE Favorites</strong> group in the dynamic data picker.</p>
+
+      <table class="wpef-attr-table">
+        <thead>
+          <tr><th>Tag</th><th>Description</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><code>{`{wpef_user_count}`}</code></td><td>Current user's count for the current post type</td></tr>
+          <tr><td><code>{`{wpef_user_count:all}`}</code></td><td>Current user's total count across all post types</td></tr>
+          <tr><td><code>{`{wpef_user_count:product}`}</code></td><td>Current user's count for a specific post type</td></tr>
+          <tr><td><code>{`{wpef_post_count}`}</code></td><td>How many users favorited the current post</td></tr>
+          <tr><td><code>{`{wpef_post_count:post_id}`}</code></td><td>How many users favorited a specific post (e.g. <code>{`{wpef_post_count:42}`}</code>)</td></tr>
+          <tr><td><code>{`{wpef_global_count}`}</code></td><td>Total favorites across all users</td></tr>
+          <tr><td><code>{`{wpef_global_count:post_type}`}</code></td><td>Global count filtered by post type (e.g. <code>{`{wpef_global_count:product}`}</code>)</td></tr>
+        </tbody>
+      </table>
+
+      <p><code>{`{wpef_user_count}`}</code> defaults to the current post type. Use <code>:all</code> for the total across all types, or a specific slug like <code>:product</code>. The <code>:post_id</code> and <code>:post_type</code> parameters on other tags default to the current post/type when omitted.</p>
+    {/snippet}
+  </Card>
+
+  <Card title="Conditions">
+    {#snippet children()}
+      <p>Control element visibility based on favorite state. These appear under the <strong>WPE Favorites</strong> group in the Bricks conditions panel.</p>
+
+      <table class="wpef-attr-table">
+        <thead>
+          <tr><th>Condition</th><th>Description</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><strong>Post Is Favorited</strong></td><td>True when the current post is in the logged-in user's favorites</td></tr>
+          <tr><td><strong>User Has Favorites</strong></td><td>True when the logged-in user has at least one favorite</td></tr>
+        </tbody>
+      </table>
+
+      <p>Both conditions evaluate to false for logged-out users.</p>
     {/snippet}
   </Card>
 
@@ -149,7 +190,7 @@
 
   const codeExample = `Section
   &boxvr; Heading: "My Favorites"
-  &boxvr; Basic Text: "You have [User Count] favorites"
+  &boxvr; Basic Text: "You have {wpef_user_count} favorites"
   &boxvr; Container (Query Loop: User Favorites, Post Type: All)
   &boxv;   &boxvr; Heading: {post_title}
   &boxv;   &boxvr; Image: {featured_image}

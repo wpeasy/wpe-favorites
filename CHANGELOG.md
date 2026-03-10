@@ -1,5 +1,18 @@
 # Changelog
 
+## 1.0.4 — 2026-03-10
+
+### Added
+
+- **Bricks dynamic data tags** — `{wpef_user_count}`, `{wpef_post_count}`, `{wpef_global_count}` with optional `:post_type` / `:post_id` parameters; `{wpef_user_count}` defaults to current post type, use `:all` for total
+- **Bricks conditions** — "Post Is Favorited" and "User Has Favorites" for element visibility control
+
+### Fixed
+
+- **Documentation element names** — now match Bricks element labels (User Favorite Count, Post Favorite Count, Global Favorite Count)
+
+---
+
 ## 1.0.3 — 2026-03-09
 
 ### Improved

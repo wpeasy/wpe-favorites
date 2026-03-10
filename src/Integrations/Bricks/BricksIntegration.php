@@ -31,6 +31,7 @@ final class BricksIntegration {
 
         Query_Favorites::init();
         Query_Post_Types::init();
+        DynamicData::init();
     }
 
     /**
