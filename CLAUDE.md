@@ -10,7 +10,11 @@ WPE Favorites adds a user favorites system to WordPress. Users can favorite any 
 - Each favorite stores **Post ID** and **Post Type** (e.g., `{ postId: 42, postType: 'product' }`)
 - Favorites are stored as a flat array, filterable by post type
 - Server-side storage: WordPress **user meta** (key: `wpef_favorites`)
-- Client-side storage: **localStorage** (key: `wpef_favorites`)
+- Client-side storage: **localStorage** with per-user keys:
+  - Anonymous: `wpef` (shared anonymous pool)
+  - Logged in: `wpef_{userId}` (user-specific)
+  - Session flag: `wpef_synced_{userId}` (sessionStorage, prevents repeat merge logic)
+  - Legacy `wpef_favorites` key is auto-migrated on first load
 
 ### REST API
 - `GET /wpef/v1/favorites` — retrieve current user's favorites
@@ -24,13 +28,16 @@ WPE Favorites adds a user favorites system to WordPress. Users can favorite any 
 - Toggle favorite on/off from any post via a button/icon
 - Instant UI response — update localStorage first, then sync to server
 - Works for anonymous users (localStorage only, no REST calls)
-- On login sync: if localStorage favorites exist and the user just logged in, merge with their server-side favorites and clear the local-only entries
+- On login sync: server favorites are fetched and applied; anon favorites are merged or discarded per the sync decision tree
 
 ### Login Sync Strategy
-- On authenticated page load, compare localStorage favorites with server response
-- Merge: union of both sets (no duplicates, matched by `postId`)
-- After merge, push the combined set to the server and update localStorage
-- Only runs once per session (flag in sessionStorage to avoid repeat syncs)
+- On every authenticated page load, fetch latest favorites from the server and update localStorage + UI
+- Full merge decision tree runs **once per session** (sessionStorage flag); subsequent reloads do a lightweight server refresh
+- **Anon key** (`wpef`) holds anonymous favorites; **user key** (`wpef_{userId}`) holds per-user favorites
+- When server has data: server wins → overwrites user key. If anon data exists and user key was empty (scenario 6), show merge/discard prompt
+- When server is empty: user key syncs to server, or anon key auto-assigns to the user (scenario 5)
+- Anon key is always cleared after login sync (consumed or discarded)
+- User key persists after logout for fast re-login (server wins on next login)
 
 ### Supported Post Types
 - All public post types enabled by default

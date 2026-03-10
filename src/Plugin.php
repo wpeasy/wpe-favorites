@@ -90,6 +90,7 @@ final class Plugin {
                 'restUrl'    => esc_url_raw(rest_url('wpef/v1')),
                 'nonce'      => wp_create_nonce('wp_rest'),
                 'isLoggedIn' => $user_id > 0,
+                'userId'     => $user_id,
             ]) . ';',
             'before'
         );

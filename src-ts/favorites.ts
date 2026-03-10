@@ -22,6 +22,7 @@ interface WPEFConfig {
   restUrl: string;
   nonce: string;
   isLoggedIn: boolean;
+  userId: number;
   favorites?: FavoritesAPI;
 }
 
@@ -51,27 +52,104 @@ declare global {
   }
 }
 
-const STORAGE_KEY = 'wpef_favorites';
-const SYNCED_KEY = 'wpef_synced';
+const LEGACY_STORAGE_KEY = 'wpef_favorites';
+const LEGACY_SYNCED_KEY = 'wpef_synced';
+
+/* ------------------------------------------------------------------ */
+/*  Storage key helpers                                                */
+/* ------------------------------------------------------------------ */
+
+function storageKey(): string {
+  const uid = window.WPEF?.userId || 0;
+  return uid > 0 ? `wpef_${uid}` : 'wpef';
+}
+
+function anonKey(): string {
+  return 'wpef';
+}
+
+function userKey(): string {
+  return `wpef_${window.WPEF?.userId || 0}`;
+}
+
+function syncedKey(): string {
+  return `wpef_synced_${window.WPEF?.userId || 0}`;
+}
 
 /* ------------------------------------------------------------------ */
 /*  localStorage helpers                                               */
 /* ------------------------------------------------------------------ */
 
-function getLocal(): Favorite[] {
+function readKey(key: string): Favorite[] {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
+    const raw = localStorage.getItem(key);
     return raw ? JSON.parse(raw) : [];
   } catch {
     return [];
   }
 }
 
-function setLocal(favorites: Favorite[]): void {
+function writeKey(key: string, favorites: Favorite[]): void {
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(favorites));
+    localStorage.setItem(key, JSON.stringify(favorites));
   } catch {
     /* storage full or unavailable */
+  }
+}
+
+function getLocal(): Favorite[] {
+  return readKey(storageKey());
+}
+
+function setLocal(favorites: Favorite[]): void {
+  writeKey(storageKey(), favorites);
+}
+
+/* ------------------------------------------------------------------ */
+/*  Legacy key migration                                               */
+/* ------------------------------------------------------------------ */
+
+function migrateLegacyKey(): void {
+  try {
+    const raw = localStorage.getItem(LEGACY_STORAGE_KEY);
+    if (!raw) return;
+
+    const data: Favorite[] = JSON.parse(raw);
+    if (!Array.isArray(data) || data.length === 0) {
+      localStorage.removeItem(LEGACY_STORAGE_KEY);
+      return;
+    }
+
+    // Copy to the appropriate new key (user key if logged in, anon key otherwise).
+    const targetKey = storageKey();
+    const existing = readKey(targetKey);
+
+    if (existing.length === 0) {
+      writeKey(targetKey, data);
+    } else {
+      // Merge: union by postId.
+      const merged = [...existing];
+      const ids = new Set(existing.map((f) => f.postId));
+      for (const fav of data) {
+        if (!ids.has(fav.postId)) merged.push(fav);
+      }
+      writeKey(targetKey, merged);
+    }
+
+    localStorage.removeItem(LEGACY_STORAGE_KEY);
+  } catch {
+    // Corrupt legacy data — just remove it.
+    localStorage.removeItem(LEGACY_STORAGE_KEY);
+  }
+
+  // Migrate legacy session flag.
+  try {
+    if (sessionStorage.getItem(LEGACY_SYNCED_KEY)) {
+      sessionStorage.setItem(syncedKey(), '1');
+      sessionStorage.removeItem(LEGACY_SYNCED_KEY);
+    }
+  } catch {
+    /* sessionStorage unavailable */
   }
 }
 
@@ -272,48 +350,147 @@ async function clearFavorites(postTypes: string[] = []): Promise<void> {
 /*  Login sync                                                         */
 /* ------------------------------------------------------------------ */
 
+function mergeFavorites(a: Favorite[], b: Favorite[]): Favorite[] {
+  const merged = [...a];
+  const ids = new Set(a.map((f) => f.postId));
+  for (const fav of b) {
+    if (!ids.has(fav.postId)) merged.push(fav);
+  }
+  return merged;
+}
+
+async function syncToServer(favorites: Favorite[]): Promise<Favorite[]> {
+  const res = await apiRequest<FavoritesResponse>('PUT', '', { favorites });
+  return res?.favorites ?? favorites;
+}
+
+function applyFavorites(favorites: Favorite[]): void {
+  setLocal(favorites);
+  updateAllButtons();
+  updateUserCounts();
+}
+
+function showSyncPrompt(anonFavs: Favorite[], serverFavs: Favorite[]): void {
+  const banner = document.createElement('div');
+  banner.className = 'wpef-sync-prompt';
+  banner.setAttribute('role', 'dialog');
+  banner.setAttribute('aria-label', 'Favorites sync');
+
+  const msg = document.createElement('p');
+  msg.className = 'wpef-sync-prompt__message';
+  msg.textContent = 'This device has unsaved favorites from a previous session. Would you like to add them to your favorites?';
+
+  const actions = document.createElement('div');
+  actions.className = 'wpef-sync-prompt__actions';
+
+  const addBtn = document.createElement('button');
+  addBtn.type = 'button';
+  addBtn.className = 'wpef-sync-prompt__btn wpef-sync-prompt__btn--add';
+  addBtn.textContent = 'Add to mine';
+
+  const discardBtn = document.createElement('button');
+  discardBtn.type = 'button';
+  discardBtn.className = 'wpef-sync-prompt__btn wpef-sync-prompt__btn--discard';
+  discardBtn.textContent = 'Discard';
+
+  actions.appendChild(addBtn);
+  actions.appendChild(discardBtn);
+  banner.appendChild(msg);
+  banner.appendChild(actions);
+
+  const dismiss = (): void => {
+    banner.classList.remove('wpef-sync-prompt--visible');
+    banner.addEventListener('transitionend', () => banner.remove());
+  };
+
+  addBtn.addEventListener('click', async () => {
+    dismiss();
+    try {
+      const merged = mergeFavorites(serverFavs, anonFavs);
+      const final_ = await syncToServer(merged);
+      applyFavorites(final_);
+      emit('wpef:synced', { favorites: final_ });
+    } catch (err) {
+      showToast(`Failed to sync favorites: ${(err as Error).message}`);
+    }
+  });
+
+  discardBtn.addEventListener('click', () => {
+    dismiss();
+    applyFavorites(serverFavs);
+  });
+
+  document.body.appendChild(banner);
+  void banner.offsetHeight;
+  banner.classList.add('wpef-sync-prompt--visible');
+}
+
 async function loginSync(): Promise<void> {
   if (!window.WPEF?.isLoggedIn) return;
 
-  // Only sync once per session.
-  if (sessionStorage.getItem(SYNCED_KEY)) return;
-  sessionStorage.setItem(SYNCED_KEY, '1');
+  const sKey = syncedKey();
+  const alreadySynced = !!sessionStorage.getItem(sKey);
 
+  // Always fetch latest from server for logged-in users.
   try {
-    const local = getLocal();
     const res = await apiRequest<FavoritesResponse>('GET');
+    const server = res?.favorites ?? [];
 
-    if (!res?.favorites) return;
-
-    const server = res.favorites;
-
-    // Nothing local to merge — just adopt server state.
-    if (local.length === 0) {
-      setLocal(server);
-      updateAllButtons();
-      updateUserCounts();
+    // On repeat loads (already synced this session), just refresh from server.
+    if (alreadySynced) {
+      if (server.length > 0) {
+        applyFavorites(server);
+      }
       return;
     }
 
-    // Merge: union by postId.
-    const merged = [...server];
-    const serverIds = new Set(server.map((f) => f.postId));
+    // First load this session — run full merge decision tree.
+    sessionStorage.setItem(sKey, '1');
 
-    for (const fav of local) {
-      if (!serverIds.has(fav.postId)) {
-        merged.push(fav);
+    const aKey = anonKey();
+    const anonFavs = readKey(aKey);
+    const userFavs = readKey(userKey());
+    const userKeyEmpty = userFavs.length === 0;
+
+    // Always clear the anon key at the end (consumed or discarded).
+    const clearAnon = (): void => {
+      try { localStorage.removeItem(aKey); } catch { /* */ }
+    };
+
+    if (server.length > 0) {
+      // Server is truth → write to user key.
+      applyFavorites(server);
+
+      if (anonFavs.length > 0 && userKeyEmpty) {
+        // Scenario 6: anon data + server data + no user key → prompt.
+        showSyncPrompt(anonFavs, server);
+        // Anon key cleared regardless of choice (prompt handlers don't need it).
+        clearAnon();
+      } else {
+        // Scenarios 2, 4, 8: server wins, discard anon silently.
+        clearAnon();
+      }
+
+      emit('wpef:synced', { favorites: server });
+    } else {
+      // Server is empty.
+      if (userFavs.length > 0) {
+        // Scenario 3: user key has data, server empty → sync to server.
+        clearAnon();
+        const final_ = await syncToServer(userFavs);
+        applyFavorites(final_);
+        emit('wpef:synced', { favorites: final_ });
+      } else if (anonFavs.length > 0) {
+        // Scenario 5: anon data, no user key, no server → auto-assign.
+        clearAnon();
+        const final_ = await syncToServer(anonFavs);
+        applyFavorites(final_);
+        emit('wpef:synced', { favorites: final_ });
+      } else {
+        // Scenario 1: all empty → start fresh.
+        clearAnon();
       }
     }
-
-    // Push merged set to server.
-    const syncRes = await apiRequest<FavoritesResponse>('PUT', '', { favorites: merged });
-    const final_ = syncRes?.favorites ?? merged;
-
-    setLocal(final_);
-    updateAllButtons();
-    updateUserCounts();
-
-    emit('wpef:synced', { favorites: final_ });
   } catch (err) {
     showToast(`Failed to sync favorites: ${(err as Error).message}`);
   }
@@ -515,6 +692,8 @@ function emit(type: string, detail: Record<string, unknown>): void {
 /* ------------------------------------------------------------------ */
 
 async function init(): Promise<void> {
+  migrateLegacyKey();
+
   document.addEventListener('click', handleClick);
   updateAllButtons();
   updateUserCounts();

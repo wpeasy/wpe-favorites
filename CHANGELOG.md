@@ -1,5 +1,20 @@
 # Changelog
 
+## 1.0.5 — 2026-03-10
+
+### Added
+
+- **Multi-user localStorage** — each logged-in user gets their own localStorage key (`wpef_{userId}`), preventing data contamination on shared devices
+- **Sync prompt** — when anonymous favorites exist and a different returning user logs in, a non-blocking banner asks whether to merge or discard them
+- **Server refresh on every page load** — logged-in users always fetch the latest favorites from the server, so changes made in other windows/devices appear on reload
+
+### Changed
+
+- **Login sync split** — the full merge decision tree (anon key handling, conflict prompt) only runs once per session; subsequent reloads do a lightweight server refresh
+- **Legacy migration** — old `wpef_favorites` localStorage key is automatically migrated to the new per-user key on first load
+
+---
+
 ## 1.0.4 — 2026-03-10
 
 ### Added
