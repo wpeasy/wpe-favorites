@@ -16,6 +16,7 @@ final class Settings {
 
     private const OPTION_KEY = 'wpef_settings';
     private const NONCE_ACTION = 'wpef_save_settings';
+    private const PAGE_SLUG = 'wpef-settings';
 
     /**
      * Register hooks.
@@ -23,6 +24,7 @@ final class Settings {
     public static function init(): void {
         add_action('admin_menu', [self::class, 'add_menu_page']);
         add_action('admin_init', [self::class, 'handle_save']);
+        add_action('admin_enqueue_scripts', [self::class, 'enqueue_settings_assets']);
     }
 
     /**
@@ -33,7 +35,7 @@ final class Settings {
             __('Favorites', 'wpef'),
             __('Favorites', 'wpef'),
             'manage_options',
-            'wpef-settings',
+            self::PAGE_SLUG,
             [self::class, 'render_page'],
             'dashicons-heart',
             30
@@ -41,13 +43,85 @@ final class Settings {
     }
 
     /**
+     * Enqueue the Svelte settings app assets on settings page only.
+     *
+     * @param string $hook_suffix The admin page hook suffix.
+     */
+    public static function enqueue_settings_assets(string $hook_suffix): void {
+        if (!str_contains($hook_suffix, self::PAGE_SLUG)) {
+            return;
+        }
+
+        wp_enqueue_style(
+            'wpef-admin-settings',
+            WPEF_PLUGIN_URL . 'assets/admin/settings.css',
+            [],
+            WPEF_VERSION
+        );
+
+        wp_enqueue_script(
+            'wpef-admin-settings',
+            WPEF_PLUGIN_URL . 'assets/admin/settings.js',
+            [],
+            WPEF_VERSION,
+            true
+        );
+
+        $settings    = self::get_settings();
+        $rules       = $settings['post_type_rules'];
+        $public_types = get_post_types(['public' => true], 'objects');
+
+        // If no rules yet, migrate from old enabled_post_types or create default.
+        if (empty($rules)) {
+            $rules = self::migrate_to_rules($settings['enabled_post_types']);
+        }
+
+        $post_type_options = [];
+        foreach ($public_types as $type) {
+            $post_type_options[] = [
+                'value' => $type->name,
+                'label' => $type->labels->name . ' (' . $type->name . ')',
+            ];
+        }
+
+        $role_options = [];
+        foreach (wp_roles()->get_names() as $slug => $name) {
+            $role_options[] = [
+                'value' => $slug,
+                'label' => translate_user_role($name),
+            ];
+        }
+
+        // Build limits map: slug => int (only non-zero).
+        $limits_map = [];
+        foreach ($settings['limits_per_type'] as $slug => $val) {
+            if ($val > 0) {
+                $limits_map[$slug] = (int) $val;
+            }
+        }
+
+        wp_add_inline_script(
+            'wpef-admin-settings',
+            'window.WPEF_SETTINGS = ' . wp_json_encode([
+                'rules'         => array_values($rules),
+                'roles'         => $role_options,
+                'postTypes'     => $post_type_options,
+                'limitsPerType' => (object) $limits_map,
+                'maxFavorites'  => (int) $settings['max_favorites'],
+            ]) . ';',
+            'before'
+        );
+    }
+
+    /**
      * Get saved settings.
      *
-     * @return array{enabled_post_types: string[], limits_per_type: array<string, int>, max_favorites: int}
+     * @return array{enabled_post_types: string[], post_type_rules: array, limits_per_type: array<string, int>, max_favorites: int}
      */
     public static function get_settings(): array {
         $defaults = [
             'enabled_post_types' => [],
+            'post_type_rules'    => [],
             'limits_per_type'    => [],
             'max_favorites'      => 0,
         ];
@@ -83,22 +157,116 @@ final class Settings {
     }
 
     /**
-     * Get post types that have favorites enabled.
+     * Get enabled post types for a specific user based on role rules.
      *
-     * Falls back to all public types if none are explicitly configured.
+     * Processes rules top-to-bottom: start with empty set, include/exclude per rule.
+     * Exclude rules have highest priority — once a type is excluded, it must be
+     * explicitly re-included by a later rule to be available again.
+     * Anonymous users ($user_id = 0) match any rule with the 'all' role,
+     * including the default rule.
+     *
+     * @param int $user_id User ID (0 for anonymous).
+     * @return string[]
+     */
+    public static function get_enabled_post_types_for_user(int $user_id = 0): array {
+        $settings = self::get_settings();
+        $rules    = $settings['post_type_rules'];
+
+        // Migration: if no rules exist but old enabled_post_types has data.
+        if (empty($rules)) {
+            $rules = self::migrate_to_rules($settings['enabled_post_types']);
+        }
+
+        // If still no rules, default to post + page.
+        if (empty($rules)) {
+            return ['post', 'page'];
+        }
+
+        // Get user roles.
+        $user_roles = [];
+        if ($user_id > 0) {
+            $user = get_userdata($user_id);
+            if ($user) {
+                $user_roles = $user->roles;
+            }
+        }
+
+        $public_types = array_values(get_post_types(['public' => true], 'names'));
+        $enabled      = $public_types;
+
+        foreach ($rules as $rule) {
+            if (!isset($rule['roles'], $rule['type'], $rule['postTypes'])) {
+                continue;
+            }
+
+            // Check if user matches this rule.
+            $matches = false;
+            if (in_array('all', $rule['roles'], true)) {
+                $matches = true;
+            } elseif ($user_id > 0 && !empty(array_intersect($rule['roles'], $user_roles))) {
+                $matches = true;
+            }
+
+            if (!$matches) {
+                continue;
+            }
+
+            // Filter to valid public post types.
+            $rule_types = array_intersect($rule['postTypes'], $public_types);
+
+            if ($rule['type'] === 'include') {
+                $enabled = array_unique(array_merge($enabled, $rule_types));
+            } elseif ($rule['type'] === 'exclude') {
+                $enabled = array_diff($enabled, $rule_types);
+            }
+        }
+
+        return array_values($enabled);
+    }
+
+    /**
+     * Get post types that have favorites enabled for the current user.
      *
      * @return string[]
      */
     public static function get_enabled_post_types(): array {
-        $settings = self::get_settings();
-        $enabled  = $settings['enabled_post_types'];
+        return self::get_enabled_post_types_for_user(get_current_user_id());
+    }
 
-        // If nothing saved yet, default to Posts and Pages.
-        if (empty($enabled) && !get_option(self::OPTION_KEY)) {
-            return ['post', 'page'];
+    /**
+     * Migrate old enabled_post_types array to a single include rule.
+     *
+     * @param string[] $enabled_post_types Old enabled post types.
+     * @return array Rule array.
+     */
+    private static function migrate_to_rules(array $enabled_post_types): array {
+        if (empty($enabled_post_types)) {
+            // No old data either — check if settings were ever saved.
+            if (!get_option(self::OPTION_KEY)) {
+                // Fresh install: include all public types.
+                $all_public = array_values(get_post_types(['public' => true], 'names'));
+                return [
+                    [
+                        'id'        => wp_generate_uuid4(),
+                        'name'      => 'Default',
+                        'roles'     => ['all'],
+                        'type'      => 'include',
+                        'postTypes' => $all_public,
+                    ],
+                ];
+            }
+            return [];
         }
 
-        return $enabled;
+        return [
+            [
+                'id'        => wp_generate_uuid4(),
+                'name'      => 'Default',
+                'roles'     => ['all'],
+                'type'      => 'include',
+                'postTypes' => $enabled_post_types,
+            ],
+        ];
     }
 
     /**
@@ -117,25 +285,70 @@ final class Settings {
             wp_die(__('Insufficient permissions.', 'wpef'));
         }
 
-        $raw_types     = isset($_POST['wpef_post_types']) && is_array($_POST['wpef_post_types'])
-            ? $_POST['wpef_post_types']
-            : [];
-        $public_types  = get_post_types(['public' => true], 'names');
-        $enabled_types = array_values(array_intersect(
-            array_map('sanitize_key', $raw_types),
-            array_values($public_types)
-        ));
+        // Post type rules from Svelte app.
+        $rules = [];
+        if (isset($_POST['wpef_rules'])) {
+            $raw_rules = json_decode(sanitize_text_field(wp_unslash($_POST['wpef_rules'])), true);
+            if (is_array($raw_rules)) {
+                $public_types = array_values(get_post_types(['public' => true], 'names'));
+                $valid_roles  = array_keys(wp_roles()->get_names());
 
-        // Per-type limits.
-        $raw_limits     = isset($_POST['wpef_limits']) && is_array($_POST['wpef_limits'])
-            ? $_POST['wpef_limits']
-            : [];
+                foreach ($raw_rules as $raw_rule) {
+                    if (!is_array($raw_rule)) {
+                        continue;
+                    }
+
+                    $type = $raw_rule['type'] ?? '';
+                    if (!in_array($type, ['include', 'exclude'], true)) {
+                        continue;
+                    }
+
+                    // Sanitize roles.
+                    $roles = [];
+                    if (isset($raw_rule['roles']) && is_array($raw_rule['roles'])) {
+                        foreach ($raw_rule['roles'] as $role) {
+                            $role = sanitize_key($role);
+                            if ($role === 'all' || in_array($role, $valid_roles, true)) {
+                                $roles[] = $role;
+                            }
+                        }
+                    }
+
+                    // Sanitize post types.
+                    $post_types = [];
+                    if (isset($raw_rule['postTypes']) && is_array($raw_rule['postTypes'])) {
+                        foreach ($raw_rule['postTypes'] as $pt) {
+                            $pt = sanitize_key($pt);
+                            if (in_array($pt, $public_types, true)) {
+                                $post_types[] = $pt;
+                            }
+                        }
+                    }
+
+                    $rules[] = [
+                        'id'        => sanitize_key($raw_rule['id'] ?? wp_generate_uuid4()),
+                        'name'      => sanitize_text_field($raw_rule['name'] ?? ''),
+                        'roles'     => $roles,
+                        'type'      => $type,
+                        'postTypes' => $post_types,
+                    ];
+                }
+            }
+        }
+
+        // Per-type limits (JSON from Svelte app).
         $limits_per_type = [];
-        foreach ($raw_limits as $slug => $val) {
-            $slug = sanitize_key($slug);
-            $val  = absint($val);
-            if ($val > 0 && in_array($slug, array_values($public_types), true)) {
-                $limits_per_type[$slug] = $val;
+        if (isset($_POST['wpef_limits_json'])) {
+            $raw_limits = json_decode(sanitize_text_field(wp_unslash($_POST['wpef_limits_json'])), true);
+            if (is_array($raw_limits)) {
+                $public_types = array_values(get_post_types(['public' => true], 'names'));
+                foreach ($raw_limits as $slug => $val) {
+                    $slug = sanitize_key($slug);
+                    $val  = absint($val);
+                    if ($val > 0 && in_array($slug, $public_types, true)) {
+                        $limits_per_type[$slug] = $val;
+                    }
+                }
             }
         }
 
@@ -143,9 +356,9 @@ final class Settings {
         $max_favorites = isset($_POST['wpef_max_favorites']) ? absint($_POST['wpef_max_favorites']) : 0;
 
         update_option(self::OPTION_KEY, [
-            'enabled_post_types' => $enabled_types,
-            'limits_per_type'    => $limits_per_type,
-            'max_favorites'      => $max_favorites,
+            'post_type_rules' => $rules,
+            'limits_per_type' => $limits_per_type,
+            'max_favorites'   => $max_favorites,
         ]);
 
         add_settings_error('wpef_settings', 'wpef_saved', __('Settings saved.', 'wpef'), 'updated');
@@ -159,13 +372,6 @@ final class Settings {
      * Render the settings page.
      */
     public static function render_page(): void {
-        $settings        = self::get_settings();
-        $enabled         = $settings['enabled_post_types'];
-        $limits_per_type = $settings['limits_per_type'];
-        $max_favorites   = $settings['max_favorites'];
-        $has_saved       = (bool) get_option(self::OPTION_KEY);
-        $public_types    = get_post_types(['public' => true], 'objects');
-
         // Show admin notices.
         if (isset($_GET['settings-updated'])) {
             settings_errors('wpef_settings');
@@ -177,88 +383,7 @@ final class Settings {
 
             <form method="post" action="">
                 <?php wp_nonce_field(self::NONCE_ACTION, 'wpef_nonce'); ?>
-
-                <table class="form-table" role="presentation">
-                    <tbody>
-                        <tr>
-                            <th scope="row"><?php esc_html_e('Enabled Post Types', 'wpef'); ?></th>
-                            <td>
-                                <fieldset>
-                                    <legend class="screen-reader-text">
-                                        <?php esc_html_e('Enabled Post Types', 'wpef'); ?>
-                                    </legend>
-                                    <table class="widefat striped" style="max-width: 500px;">
-                                        <thead>
-                                            <tr>
-                                                <th><?php esc_html_e('Post Type', 'wpef'); ?></th>
-                                                <th style="width: 120px;"><?php esc_html_e('Max per User', 'wpef'); ?></th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            <?php foreach ($public_types as $type): ?>
-                                                <?php
-                                                $checked = $has_saved
-                                                    ? in_array($type->name, $enabled, true)
-                                                    : in_array($type->name, ['post', 'page'], true);
-                                                $limit = $limits_per_type[$type->name] ?? '';
-                                                ?>
-                                                <tr>
-                                                    <td>
-                                                        <label>
-                                                            <input
-                                                                type="checkbox"
-                                                                name="wpef_post_types[]"
-                                                                value="<?php echo esc_attr($type->name); ?>"
-                                                                <?php checked($checked); ?>
-                                                            />
-                                                            <?php echo esc_html($type->labels->name); ?>
-                                                            <code style="margin-left: 4px; font-size: 12px; color: #666;">
-                                                                <?php echo esc_html($type->name); ?>
-                                                            </code>
-                                                        </label>
-                                                    </td>
-                                                    <td>
-                                                        <input
-                                                            type="number"
-                                                            name="wpef_limits[<?php echo esc_attr($type->name); ?>]"
-                                                            value="<?php echo esc_attr($limit); ?>"
-                                                            min="1"
-                                                            placeholder="<?php esc_attr_e('Unlimited', 'wpef'); ?>"
-                                                            style="width: 100%;"
-                                                        />
-                                                    </td>
-                                                </tr>
-                                            <?php endforeach; ?>
-                                        </tbody>
-                                    </table>
-                                    <p class="description">
-                                        <?php esc_html_e('Select which post types support the favorites feature. Optionally set a per-type limit.', 'wpef'); ?>
-                                    </p>
-                                </fieldset>
-                            </td>
-                        </tr>
-                        <tr>
-                            <th scope="row">
-                                <label for="wpef_max_favorites"><?php esc_html_e('Max Favorites per User', 'wpef'); ?></label>
-                            </th>
-                            <td>
-                                <input
-                                    type="number"
-                                    id="wpef_max_favorites"
-                                    name="wpef_max_favorites"
-                                    value="<?php echo esc_attr($max_favorites ? $max_favorites : ''); ?>"
-                                    min="1"
-                                    placeholder="<?php esc_attr_e('Unlimited', 'wpef'); ?>"
-                                    class="small-text"
-                                />
-                                <p class="description">
-                                    <?php esc_html_e('Maximum total favorites across all post types. Leave empty for unlimited.', 'wpef'); ?>
-                                </p>
-                            </td>
-                        </tr>
-                    </tbody>
-                </table>
-
+                <div id="wpef-settings-app"></div>
                 <?php submit_button(__('Save Settings', 'wpef')); ?>
             </form>
         </div>

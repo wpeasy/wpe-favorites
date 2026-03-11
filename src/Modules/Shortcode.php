@@ -10,6 +10,7 @@ declare(strict_types=1);
 
 namespace WPE\Favorites\Modules;
 
+use WPE\Favorites\Admin\Settings;
 use WPE\Favorites\Plugin;
 
 defined('ABSPATH') || exit;
@@ -65,9 +66,15 @@ final class Shortcode {
             return '';
         }
 
-        Plugin::enqueue_assets();
-
         $post_type = $post->post_type;
+
+        // Output nothing if this post type is not allowed by the current user's rules.
+        $enabled_types = Settings::get_enabled_post_types();
+        if (!in_array($post_type, $enabled_types, true)) {
+            return '';
+        }
+
+        Plugin::enqueue_assets();
 
         $label             = sanitize_text_field($atts['label']);
         $active_label      = sanitize_text_field($atts['active_label']);

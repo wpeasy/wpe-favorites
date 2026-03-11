@@ -23,6 +23,24 @@ export default defineConfig(({ mode }) => {
     };
   }
 
+  if (target === 'admin-settings') {
+    return {
+      plugins: [svelte()],
+      build: {
+        outDir: 'assets/admin',
+        emptyOutDir: false,
+        sourcemap: false,
+        rollupOptions: {
+          input: resolve(__dirname, 'src-admin/settings/main.ts'),
+          output: {
+            entryFileNames: 'settings.js',
+            assetFileNames: 'settings.[ext]',
+          },
+        },
+      },
+    };
+  }
+
   // Default: frontend favorites IIFE bundle
   return {
     build: {

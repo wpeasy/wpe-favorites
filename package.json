@@ -1,14 +1,16 @@
 {
   "name": "wpe-favorites",
-  "version": "1.0.6",
+  "version": "1.0.7",
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "vite build && cross-env BUILD_TARGET=admin-docs vite build",
+    "build": "vite build && cross-env BUILD_TARGET=admin-docs vite build && cross-env BUILD_TARGET=admin-settings vite build",
     "build:frontend": "vite build",
     "build:docs": "cross-env BUILD_TARGET=admin-docs vite build",
+    "build:settings": "cross-env BUILD_TARGET=admin-settings vite build",
     "watch": "vite build --watch",
     "watch:docs": "cross-env BUILD_TARGET=admin-docs vite build --watch",
+    "watch:settings": "cross-env BUILD_TARGET=admin-settings vite build --watch",
     "typecheck": "tsc --noEmit"
   },
   "devDependencies": {

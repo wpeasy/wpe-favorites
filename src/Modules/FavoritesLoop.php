@@ -26,6 +26,7 @@ declare(strict_types=1);
 namespace WPE\Favorites\Modules;
 
 use WPE\Favorites\Favorites;
+use WPE\Favorites\Plugin;
 
 defined('ABSPATH') || exit;
 
@@ -71,6 +72,13 @@ final class FavoritesLoop {
         if (empty($favorites)) {
             return $atts['no_results'] !== '' ? esc_html($atts['no_results']) : '';
         }
+
+        // Filter to only enabled post types.
+        $enabled_types = Plugin::get_supported_post_types();
+        $favorites = array_filter(
+            $favorites,
+            fn(array $fav): bool => in_array($fav['postType'], $enabled_types, true)
+        );
 
         $post_type = sanitize_key($atts['post_type']);
 

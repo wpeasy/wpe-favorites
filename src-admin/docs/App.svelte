@@ -4,6 +4,7 @@
   import { VerticalTabs, Card, Stack } from '../lib';
   import TabMain from './tabs/TabMain.svelte';
   import TabShortcodes from './tabs/TabShortcodes.svelte';
+  import TabSettings from './tabs/TabSettings.svelte';
   import TabBricks from './tabs/TabBricks.svelte';
   import TabJavaScript from './tabs/TabJavaScript.svelte';
 
@@ -27,6 +28,11 @@
           content: mainContent,
         },
         {
+          id: 'settings',
+          label: 'Settings',
+          content: settingsContent,
+        },
+        {
           id: 'shortcodes',
           label: 'Shortcodes',
           content: shortcodesContent,
@@ -48,6 +54,10 @@
 
 {#snippet mainContent()}
   <TabMain />
+{/snippet}
+
+{#snippet settingsContent()}
+  <TabSettings />
 {/snippet}
 
 {#snippet shortcodesContent()}

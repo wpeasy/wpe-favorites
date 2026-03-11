@@ -39,9 +39,16 @@ WPE Favorites adds a user favorites system to WordPress. Users can favorite any 
 - Anon key is always cleared after login sync (consumed or discarded)
 - User key persists after logout for fast re-login (server wins on next login)
 
-### Supported Post Types
-- All public post types enabled by default
-- Filterable via `wpef_supported_post_types` hook
+### Post Type Rules
+- Role-based include/exclude rules control which post types each role can favorite
+- Rules are processed top-to-bottom; all post types start as **allowed**, then rules modify
+- `include` explicitly enables post types for matched roles; `exclude` disables them
+- Roles support `all` (matches everyone including anonymous) or specific WordPress roles
+- Default rule (index 0) is pinned, undeletable, and always processes first
+- Stored in `wpef_settings` as `post_type_rules` (array of Rule objects)
+- **Resolution:** `Settings::get_enabled_post_types_for_user(int $user_id)` — returns enabled types for a user
+- **Backward compat:** old `enabled_post_types` auto-migrates to a single include rule on first access
+- Filterable via `wpef_supported_post_types` hook (applied after rule resolution)
 
 ### Max Favorites Limits
 - **Per-type limit** — configurable max favorites per user for each post type (e.g., max 5 products)

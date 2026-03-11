@@ -202,6 +202,19 @@ final class Query_Favorites {
             return [];
         }
 
+        // Filter to only enabled post types.
+        $enabled_types = Plugin::get_supported_post_types();
+        $favorites = array_filter(
+            $favorites,
+            fn(array $fav): bool => in_array($fav['postType'], $enabled_types, true)
+        );
+
+        if (empty($favorites)) {
+            $query_obj->count         = 0;
+            $query_obj->max_num_pages = 0;
+            return [];
+        }
+
         $settings    = $query_obj->settings ?? [];
         $type_source = $settings['wpefFavoritesPostTypeSource'] ?? 'select';
 

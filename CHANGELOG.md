@@ -1,5 +1,25 @@
 # Changelog
 
+## 1.0.7 — 2026-03-11
+
+### Added
+
+- **Role-based post type rules** — repeater-style settings with include/exclude rules, per-role targeting, drag-and-drop reordering, and editable rule names (replaces flat post type checkboxes)
+- **Settings Svelte app** — tabbed layout with Rules, Limits, and Audit tabs built with Svelte 5 and wpea framework
+- **Audit tab** — live preview table showing how rules resolve per role, with allowed/excluded badges and winning rule names; sticky role column with horizontal scroll for many post types
+- **Settings documentation tab** — explains rule resolution with examples in the admin docs
+
+### Changed
+
+- **Rule resolution algorithm** — all post types start as allowed; include/exclude rules modify from that baseline (both PHP and Svelte resolvers)
+- **Post type enforcement** — button shortcode, Bricks element, favorites loop shortcode, and Bricks favorites query now respect enabled post type rules
+
+### Fixed
+
+- **Audit table layout** — post type columns render as proper table grid instead of stacking vertically
+
+---
+
 ## 1.0.6 — 2026-03-11
 
 ### Added
