@@ -1,5 +1,17 @@
 # Changelog
 
+## 1.0.6 — 2026-03-11
+
+### Added
+
+- **Max favorites limits** — configurable per-post-type and global total limits from the settings page
+- **Settings table UI** — post type checkboxes now displayed in a two-column table with per-type "Max per User" number inputs
+- **Server-side enforcement** — `add()` returns a `WP_Error` when per-type or global limits are exceeded; `sync()` silently truncates to configured limits
+- **Client-side pre-flight check** — limits passed via `window.WPEF.limits` for instant feedback before server round-trip
+- **Settings getters** — `Settings::get_limit_for_type()` and `Settings::get_max_favorites()` for use by other modules
+
+---
+
 ## 1.0.5 — 2026-03-10
 
 ### Added

@@ -82,16 +82,31 @@ final class Plugin {
             true
         );
 
-        $user_id = get_current_user_id();
+        $user_id  = get_current_user_id();
+        $settings = Admin\Settings::get_settings();
+
+        $limits = [];
+        if (!empty($settings['limits_per_type'])) {
+            $limits['perType'] = $settings['limits_per_type'];
+        }
+        if (!empty($settings['max_favorites'])) {
+            $limits['total'] = $settings['max_favorites'];
+        }
+
+        $config = [
+            'restUrl'    => esc_url_raw(rest_url('wpef/v1')),
+            'nonce'      => wp_create_nonce('wp_rest'),
+            'isLoggedIn' => $user_id > 0,
+            'userId'     => $user_id,
+        ];
+
+        if (!empty($limits)) {
+            $config['limits'] = $limits;
+        }
 
         wp_add_inline_script(
             'wpef-favorites',
-            'window.WPEF = ' . wp_json_encode([
-                'restUrl'    => esc_url_raw(rest_url('wpef/v1')),
-                'nonce'      => wp_create_nonce('wp_rest'),
-                'isLoggedIn' => $user_id > 0,
-                'userId'     => $user_id,
-            ]) . ';',
+            'window.WPEF = ' . wp_json_encode($config) . ';',
             'before'
         );
     }

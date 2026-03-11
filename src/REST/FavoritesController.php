@@ -138,8 +138,13 @@ final class FavoritesController {
             return new WP_Error('wpef_invalid_post', __('Post not found.', 'wpef'), ['status' => 404]);
         }
 
-        $favorites = Favorites::add(get_current_user_id(), $post_id, $post_type);
-        return new WP_REST_Response(['favorites' => $favorites], 200);
+        $result = Favorites::add(get_current_user_id(), $post_id, $post_type);
+
+        if (is_wp_error($result)) {
+            return $result;
+        }
+
+        return new WP_REST_Response(['favorites' => $result], 200);
     }
 
     /**

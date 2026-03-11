@@ -18,11 +18,17 @@ interface Favorite {
   postType: string;
 }
 
+interface WPEFLimits {
+  perType?: Record<string, number>;
+  total?: number;
+}
+
 interface WPEFConfig {
   restUrl: string;
   nonce: string;
   isLoggedIn: boolean;
   userId: number;
+  limits?: WPEFLimits;
   favorites?: FavoritesAPI;
 }
 
@@ -259,8 +265,27 @@ function isFavorited(postId: number): boolean {
 async function addFavorite(postId: number, postType: string): Promise<void> {
   if (isFavorited(postId)) return;
 
-  // Optimistic: update localStorage first.
+  // Pre-flight limit check.
   const favorites = getLocal();
+  const limits = window.WPEF?.limits;
+
+  if (limits) {
+    const typeLimit = limits.perType?.[postType];
+    if (typeLimit && typeLimit > 0) {
+      const typeCount = favorites.filter((f) => f.postType === postType).length;
+      if (typeCount >= typeLimit) {
+        showToast(`You can only favorite up to ${typeLimit} of this type.`);
+        return;
+      }
+    }
+
+    if (limits.total && limits.total > 0 && favorites.length >= limits.total) {
+      showToast(`You can only have up to ${limits.total} total favorites.`);
+      return;
+    }
+  }
+
+  // Optimistic: update localStorage first.
   favorites.push({ postId, postType });
   setLocal(favorites);
   updateAllButtons();

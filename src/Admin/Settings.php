@@ -43,11 +43,13 @@ final class Settings {
     /**
      * Get saved settings.
      *
-     * @return array{enabled_post_types: string[]}
+     * @return array{enabled_post_types: string[], limits_per_type: array<string, int>, max_favorites: int}
      */
     public static function get_settings(): array {
         $defaults = [
             'enabled_post_types' => [],
+            'limits_per_type'    => [],
+            'max_favorites'      => 0,
         ];
 
         $saved = get_option(self::OPTION_KEY, []);
@@ -57,6 +59,27 @@ final class Settings {
         }
 
         return wp_parse_args($saved, $defaults);
+    }
+
+    /**
+     * Get the per-type limit for a given post type.
+     *
+     * @param string $post_type Post type slug.
+     * @return int 0 = unlimited.
+     */
+    public static function get_limit_for_type(string $post_type): int {
+        $settings = self::get_settings();
+        return $settings['limits_per_type'][$post_type] ?? 0;
+    }
+
+    /**
+     * Get the global max favorites limit.
+     *
+     * @return int 0 = unlimited.
+     */
+    public static function get_max_favorites(): int {
+        $settings = self::get_settings();
+        return (int) ($settings['max_favorites'] ?? 0);
     }
 
     /**
@@ -103,8 +126,26 @@ final class Settings {
             array_values($public_types)
         ));
 
+        // Per-type limits.
+        $raw_limits     = isset($_POST['wpef_limits']) && is_array($_POST['wpef_limits'])
+            ? $_POST['wpef_limits']
+            : [];
+        $limits_per_type = [];
+        foreach ($raw_limits as $slug => $val) {
+            $slug = sanitize_key($slug);
+            $val  = absint($val);
+            if ($val > 0 && in_array($slug, array_values($public_types), true)) {
+                $limits_per_type[$slug] = $val;
+            }
+        }
+
+        // Global max favorites.
+        $max_favorites = isset($_POST['wpef_max_favorites']) ? absint($_POST['wpef_max_favorites']) : 0;
+
         update_option(self::OPTION_KEY, [
             'enabled_post_types' => $enabled_types,
+            'limits_per_type'    => $limits_per_type,
+            'max_favorites'      => $max_favorites,
         ]);
 
         add_settings_error('wpef_settings', 'wpef_saved', __('Settings saved.', 'wpef'), 'updated');
@@ -118,10 +159,12 @@ final class Settings {
      * Render the settings page.
      */
     public static function render_page(): void {
-        $settings     = self::get_settings();
-        $enabled      = $settings['enabled_post_types'];
-        $has_saved    = (bool) get_option(self::OPTION_KEY);
-        $public_types = get_post_types(['public' => true], 'objects');
+        $settings        = self::get_settings();
+        $enabled         = $settings['enabled_post_types'];
+        $limits_per_type = $settings['limits_per_type'];
+        $max_favorites   = $settings['max_favorites'];
+        $has_saved       = (bool) get_option(self::OPTION_KEY);
+        $public_types    = get_post_types(['public' => true], 'objects');
 
         // Show admin notices.
         if (isset($_GET['settings-updated'])) {
@@ -144,29 +187,73 @@ final class Settings {
                                     <legend class="screen-reader-text">
                                         <?php esc_html_e('Enabled Post Types', 'wpef'); ?>
                                     </legend>
-                                    <?php foreach ($public_types as $type): ?>
-                                        <?php
-                                        $checked = $has_saved
-                                            ? in_array($type->name, $enabled, true)
-                                            : in_array($type->name, ['post', 'page'], true);
-                                        ?>
-                                        <label style="display: block; margin-bottom: 8px;">
-                                            <input
-                                                type="checkbox"
-                                                name="wpef_post_types[]"
-                                                value="<?php echo esc_attr($type->name); ?>"
-                                                <?php checked($checked); ?>
-                                            />
-                                            <?php echo esc_html($type->labels->name); ?>
-                                            <code style="margin-left: 4px; font-size: 12px; color: #666;">
-                                                <?php echo esc_html($type->name); ?>
-                                            </code>
-                                        </label>
-                                    <?php endforeach; ?>
+                                    <table class="widefat striped" style="max-width: 500px;">
+                                        <thead>
+                                            <tr>
+                                                <th><?php esc_html_e('Post Type', 'wpef'); ?></th>
+                                                <th style="width: 120px;"><?php esc_html_e('Max per User', 'wpef'); ?></th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <?php foreach ($public_types as $type): ?>
+                                                <?php
+                                                $checked = $has_saved
+                                                    ? in_array($type->name, $enabled, true)
+                                                    : in_array($type->name, ['post', 'page'], true);
+                                                $limit = $limits_per_type[$type->name] ?? '';
+                                                ?>
+                                                <tr>
+                                                    <td>
+                                                        <label>
+                                                            <input
+                                                                type="checkbox"
+                                                                name="wpef_post_types[]"
+                                                                value="<?php echo esc_attr($type->name); ?>"
+                                                                <?php checked($checked); ?>
+                                                            />
+                                                            <?php echo esc_html($type->labels->name); ?>
+                                                            <code style="margin-left: 4px; font-size: 12px; color: #666;">
+                                                                <?php echo esc_html($type->name); ?>
+                                                            </code>
+                                                        </label>
+                                                    </td>
+                                                    <td>
+                                                        <input
+                                                            type="number"
+                                                            name="wpef_limits[<?php echo esc_attr($type->name); ?>]"
+                                                            value="<?php echo esc_attr($limit); ?>"
+                                                            min="1"
+                                                            placeholder="<?php esc_attr_e('Unlimited', 'wpef'); ?>"
+                                                            style="width: 100%;"
+                                                        />
+                                                    </td>
+                                                </tr>
+                                            <?php endforeach; ?>
+                                        </tbody>
+                                    </table>
                                     <p class="description">
-                                        <?php esc_html_e('Select which post types support the favorites feature.', 'wpef'); ?>
+                                        <?php esc_html_e('Select which post types support the favorites feature. Optionally set a per-type limit.', 'wpef'); ?>
                                     </p>
                                 </fieldset>
+                            </td>
+                        </tr>
+                        <tr>
+                            <th scope="row">
+                                <label for="wpef_max_favorites"><?php esc_html_e('Max Favorites per User', 'wpef'); ?></label>
+                            </th>
+                            <td>
+                                <input
+                                    type="number"
+                                    id="wpef_max_favorites"
+                                    name="wpef_max_favorites"
+                                    value="<?php echo esc_attr($max_favorites ? $max_favorites : ''); ?>"
+                                    min="1"
+                                    placeholder="<?php esc_attr_e('Unlimited', 'wpef'); ?>"
+                                    class="small-text"
+                                />
+                                <p class="description">
+                                    <?php esc_html_e('Maximum total favorites across all post types. Leave empty for unlimited.', 'wpef'); ?>
+                                </p>
                             </td>
                         </tr>
                     </tbody>

@@ -12,6 +12,8 @@ declare(strict_types=1);
 
 namespace WPE\Favorites;
 
+use WP_Error;
+
 defined('ABSPATH') || exit;
 
 final class Favorites {
@@ -45,9 +47,9 @@ final class Favorites {
      * @param int    $user_id   WordPress user ID.
      * @param int    $post_id   Post ID to favorite.
      * @param string $post_type Post type slug.
-     * @return array<int, array{postId: int, postType: string}> Updated favorites.
+     * @return array<int, array{postId: int, postType: string}>|WP_Error Updated favorites or error if limit exceeded.
      */
-    public static function add(int $user_id, int $post_id, string $post_type): array {
+    public static function add(int $user_id, int $post_id, string $post_type): array|WP_Error {
         $favorites = self::get($user_id);
 
         // Don't add duplicates.
@@ -55,6 +57,36 @@ final class Favorites {
             if ($fav['postId'] === $post_id) {
                 return $favorites;
             }
+        }
+
+        // Check per-type limit.
+        $type_limit = Admin\Settings::get_limit_for_type($post_type);
+        if ($type_limit > 0) {
+            $type_count = count(array_filter(
+                $favorites,
+                fn(array $f): bool => $f['postType'] === $post_type
+            ));
+            if ($type_count >= $type_limit) {
+                $type_obj  = get_post_type_object($post_type);
+                $type_name = $type_obj ? $type_obj->labels->name : $post_type;
+                return new WP_Error(
+                    'wpef_type_limit',
+                    /* translators: 1: post type name, 2: limit number */
+                    sprintf(__('You can only favorite up to %2$d %1$s.', 'wpef'), $type_name, $type_limit),
+                    ['status' => 400]
+                );
+            }
+        }
+
+        // Check global limit.
+        $max = Admin\Settings::get_max_favorites();
+        if ($max > 0 && count($favorites) >= $max) {
+            return new WP_Error(
+                'wpef_global_limit',
+                /* translators: %d: max favorites number */
+                sprintf(__('You can only have up to %d total favorites.', 'wpef'), $max),
+                ['status' => 400]
+            );
         }
 
         $favorites[] = [
@@ -104,6 +136,7 @@ final class Favorites {
         $old   = self::get($user_id);
         $clean = self::sanitize_array($favorites);
         $clean = self::deduplicate($clean);
+        $clean = self::enforce_limits($clean);
 
         update_user_meta($user_id, self::META_KEY, $clean);
 
@@ -406,5 +439,45 @@ final class Favorites {
         }
 
         return $result;
+    }
+
+    /**
+     * Enforce per-type and global limits on a favorites array.
+     *
+     * Keeps the first N items when truncating (preserves order).
+     *
+     * @param array $favorites Sanitized, deduplicated favorites.
+     * @return array<int, array{postId: int, postType: string}>
+     */
+    private static function enforce_limits(array $favorites): array {
+        // Per-type limits: group by type, truncate each group.
+        $settings = Admin\Settings::get_settings();
+        $limits   = $settings['limits_per_type'];
+
+        if (!empty($limits)) {
+            $counts = [];
+            $result = [];
+
+            foreach ($favorites as $fav) {
+                $pt = $fav['postType'];
+                $counts[$pt] = ($counts[$pt] ?? 0) + 1;
+
+                if (isset($limits[$pt]) && $counts[$pt] > $limits[$pt]) {
+                    continue; // Skip — over per-type limit.
+                }
+
+                $result[] = $fav;
+            }
+
+            $favorites = $result;
+        }
+
+        // Global limit.
+        $max = (int) ($settings['max_favorites'] ?? 0);
+        if ($max > 0 && count($favorites) > $max) {
+            $favorites = array_slice($favorites, 0, $max);
+        }
+
+        return $favorites;
     }
 }

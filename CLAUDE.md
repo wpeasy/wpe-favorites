@@ -43,6 +43,14 @@ WPE Favorites adds a user favorites system to WordPress. Users can favorite any 
 - All public post types enabled by default
 - Filterable via `wpef_supported_post_types` hook
 
+### Max Favorites Limits
+- **Per-type limit** — configurable max favorites per user for each post type (e.g., max 5 products)
+- **Global limit** — max total favorites per user across all post types
+- Both default to 0 (unlimited); stored in `wpef_settings` as `limits_per_type` (assoc array) and `max_favorites` (int)
+- **Server enforcement:** `Favorites::add()` returns `WP_Error` on limit exceeded; `Favorites::sync()` silently truncates
+- **Client enforcement:** limits passed via `window.WPEF.limits` (`perType`, `total`); `addFavorite()` checks before optimistic update
+- **Settings getters:** `Settings::get_limit_for_type(string $post_type): int` and `Settings::get_max_favorites(): int`
+
 ### Post Deletion Cleanup
 - Hook into `before_delete_post` to remove deleted posts from all users' favorites
 
