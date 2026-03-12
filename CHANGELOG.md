@@ -1,5 +1,24 @@
 # Changelog
 
+## 1.0.8 — 2026-03-12
+
+### Added
+
+- **FluentCart licensing** — replaced GitHub auto-updater with FluentCart license activation, deactivation, and status checks (LTD model with unlimited domains)
+- **Licensing documentation tab** — explains activation, what's gated, multisite behavior, local/dev bypass, and deactivation
+- **WordPress multisite support** — site-scoped user meta keys, network-wide license storage, scoped user queries
+
+### Changed
+
+- **Licensing model** — all frontend features (shortcodes, Bricks elements, REST API, query loops) work without a license; only settings page and automatic updates require activation
+- **License bypass** — removed `WP_LOCAL_DEV` constant bypass; local/dev detection uses domain TLDs and private IPs only
+
+### Removed
+
+- **GitHub auto-updater** — replaced by FluentCart plugin updater with license-key-based update delivery
+
+---
+
 ## 1.0.7 — 2026-03-11
 
 ### Added

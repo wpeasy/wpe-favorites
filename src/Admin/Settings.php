@@ -20,9 +20,11 @@ final class Settings {
 
     /**
      * Register hooks.
+     *
+     * Note: add_menu_page() is registered separately by Plugin::init()
+     * so the top-level menu exists even when the plugin is unlicensed.
      */
     public static function init(): void {
-        add_action('admin_menu', [self::class, 'add_menu_page']);
         add_action('admin_init', [self::class, 'handle_save']);
         add_action('admin_enqueue_scripts', [self::class, 'enqueue_settings_assets']);
     }
@@ -372,6 +374,23 @@ final class Settings {
      * Render the settings page.
      */
     public static function render_page(): void {
+        // If unlicensed, show activation prompt instead of settings.
+        if (!\WPE\Favorites\Plugin::is_licensed()) {
+            $license_url = admin_url('admin.php?page=' . WPEF_LICENSE_SLUG . '-manage-license');
+            ?>
+            <div class="wrap">
+                <h1><?php esc_html_e('Favorites Settings', 'wpef'); ?></h1>
+                <div class="notice notice-warning inline">
+                    <p>
+                        <?php esc_html_e('A valid license is required to access settings.', 'wpef'); ?>
+                        <a href="<?php echo esc_url($license_url); ?>"><?php esc_html_e('Activate your license', 'wpef'); ?></a>
+                    </p>
+                </div>
+            </div>
+            <?php
+            return;
+        }
+
         // Show admin notices.
         if (isset($_GET['settings-updated'])) {
             settings_errors('wpef_settings');

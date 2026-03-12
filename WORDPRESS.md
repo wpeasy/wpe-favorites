@@ -22,11 +22,15 @@
 
 | Item | Value |
 |------|-------|
+| **Namespace** | `WPE\Favorites` |
+| **Main Plugin File** | `wpe-favorites.php` |
+| **Plugin Slug** | `wpe-favorites` |
 | **Constants Prefix** | `WPEF_` |
 | **REST API Namespace** | `wpef/v1` |
 | **Database Table Prefix** | `wpef_` |
 | **JS Global** | `WPEF` (window.WPEF) |
 | **CSS Prefix** | `.wpef-` |
 | **Text Domain** | `wpef` |
+| **Admin Menu Slug** | `wpef-settings` |
 | **Minimum WordPress** | 6.5 |
 | **Minimum PHP** | 8.0 |

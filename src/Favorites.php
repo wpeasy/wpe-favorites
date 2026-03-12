@@ -18,8 +18,28 @@ defined('ABSPATH') || exit;
 
 final class Favorites {
 
-    private const META_KEY      = 'wpef_favorites';
-    private const POST_COUNT_KEY = 'wpef_count';
+    private const META_KEY_BASE   = 'wpef_favorites';
+    private const POST_COUNT_KEY  = 'wpef_count';
+
+    /* ------------------------------------------------------------------ */
+    /*  Meta key (site-scoped on multisite)                                */
+    /* ------------------------------------------------------------------ */
+
+    /**
+     * Get the user meta key for favorites.
+     *
+     * On multisite, the key is suffixed with the blog ID to prevent
+     * cross-site data contamination (usermeta is a shared table).
+     *
+     * @return string
+     */
+    private static function meta_key(): string {
+        if (is_multisite()) {
+            return self::META_KEY_BASE . '_' . get_current_blog_id();
+        }
+
+        return self::META_KEY_BASE;
+    }
 
     /* ------------------------------------------------------------------ */
     /*  Per-user CRUD                                                      */
@@ -32,7 +52,7 @@ final class Favorites {
      * @return array<int, array{postId: int, postType: string}>
      */
     public static function get(int $user_id): array {
-        $favorites = get_user_meta($user_id, self::META_KEY, true);
+        $favorites = get_user_meta($user_id, self::meta_key(), true);
 
         if (!is_array($favorites)) {
             return [];
@@ -94,7 +114,7 @@ final class Favorites {
             'postType' => $post_type,
         ];
 
-        update_user_meta($user_id, self::META_KEY, $favorites);
+        update_user_meta($user_id, self::meta_key(), $favorites);
         self::increment_post_count($post_id);
 
         return $favorites;
@@ -116,7 +136,7 @@ final class Favorites {
             fn(array $fav): bool => $fav['postId'] !== $post_id
         ));
 
-        update_user_meta($user_id, self::META_KEY, $favorites);
+        update_user_meta($user_id, self::meta_key(), $favorites);
 
         if (count($favorites) < $original_count) {
             self::decrement_post_count($post_id);
@@ -138,7 +158,7 @@ final class Favorites {
         $clean = self::deduplicate($clean);
         $clean = self::enforce_limits($clean);
 
-        update_user_meta($user_id, self::META_KEY, $clean);
+        update_user_meta($user_id, self::meta_key(), $clean);
 
         // Update post counts for the diff.
         $old_ids = array_column($old, 'postId');
@@ -171,12 +191,14 @@ final class Favorites {
             return [];
         }
 
+        $meta_key = self::meta_key();
+
         if (empty($post_types)) {
             // Clear everything — decrement all post counts.
             foreach ($favorites as $fav) {
                 self::decrement_post_count($fav['postId']);
             }
-            update_user_meta($user_id, self::META_KEY, []);
+            update_user_meta($user_id, $meta_key, []);
             return [];
         }
 
@@ -190,37 +212,36 @@ final class Favorites {
             }
         }
 
-        update_user_meta($user_id, self::META_KEY, $remaining);
+        update_user_meta($user_id, $meta_key, $remaining);
         return $remaining;
     }
 
     /**
      * Remove a post ID from ALL users' favorites.
      *
-     * Used when a post is permanently deleted.
+     * Used when a post is permanently deleted. On multisite, scoped
+     * to users of the current site only.
      *
      * @param int $post_id Post ID to purge.
      */
     public static function purge_post(int $post_id): void {
-        global $wpdb;
-
-        $user_ids = $wpdb->get_col(
-            $wpdb->prepare(
-                "SELECT user_id FROM {$wpdb->usermeta} WHERE meta_key = %s",
-                self::META_KEY
-            )
-        );
+        $meta_key = self::meta_key();
+        $user_ids = self::get_site_user_ids_with_favorites();
 
         foreach ($user_ids as $uid) {
-            $uid = (int) $uid;
-            $favorites = self::get($uid);
-            $filtered  = array_values(array_filter(
+            $favorites = get_user_meta($uid, $meta_key, true);
+
+            if (!is_array($favorites)) {
+                continue;
+            }
+
+            $filtered = array_values(array_filter(
                 $favorites,
-                fn(array $fav): bool => $fav['postId'] !== $post_id
+                fn(array $fav): bool => (int) ($fav['postId'] ?? 0) !== $post_id
             ));
 
             if (count($filtered) !== count($favorites)) {
-                update_user_meta($uid, self::META_KEY, $filtered);
+                update_user_meta($uid, $meta_key, $filtered);
             }
         }
 
@@ -293,7 +314,7 @@ final class Favorites {
     }
 
     /**
-     * Recalculate the favorite count for a post by scanning all users.
+     * Recalculate the favorite count for a post by scanning current-site users.
      *
      * Use sparingly — expensive query. Useful for data repair.
      *
@@ -301,22 +322,19 @@ final class Favorites {
      * @return int Recalculated count.
      */
     public static function recalculate_post_count(int $post_id): int {
-        global $wpdb;
-
-        // Count how many user meta rows contain this post ID.
-        // We search for the serialized postId value in the meta_value.
-        $user_ids = $wpdb->get_col(
-            $wpdb->prepare(
-                "SELECT user_id FROM {$wpdb->usermeta} WHERE meta_key = %s",
-                self::META_KEY
-            )
-        );
+        $meta_key = self::meta_key();
+        $user_ids = self::get_site_user_ids_with_favorites();
 
         $count = 0;
         foreach ($user_ids as $uid) {
-            $favorites = self::get((int) $uid);
+            $favorites = get_user_meta($uid, $meta_key, true);
+
+            if (!is_array($favorites)) {
+                continue;
+            }
+
             foreach ($favorites as $fav) {
-                if ($fav['postId'] === $post_id) {
+                if (is_array($fav) && (int) ($fav['postId'] ?? 0) === $post_id) {
                     $count++;
                     break;
                 }
@@ -333,23 +351,17 @@ final class Favorites {
     /* ------------------------------------------------------------------ */
 
     /**
-     * Get the total number of favorites across all users.
+     * Get the total number of favorites across all users on the current site.
      *
      * @return int
      */
     public static function global_count(): int {
-        global $wpdb;
-
-        $rows = $wpdb->get_col(
-            $wpdb->prepare(
-                "SELECT meta_value FROM {$wpdb->usermeta} WHERE meta_key = %s",
-                self::META_KEY
-            )
-        );
+        $meta_key = self::meta_key();
+        $user_ids = self::get_site_user_ids_with_favorites();
 
         $total = 0;
-        foreach ($rows as $raw) {
-            $data = maybe_unserialize($raw);
+        foreach ($user_ids as $uid) {
+            $data = get_user_meta($uid, $meta_key, true);
             if (is_array($data)) {
                 $total += count($data);
             }
@@ -365,18 +377,12 @@ final class Favorites {
      * @return int
      */
     public static function global_count_by_type(string $post_type): int {
-        global $wpdb;
-
-        $rows = $wpdb->get_col(
-            $wpdb->prepare(
-                "SELECT meta_value FROM {$wpdb->usermeta} WHERE meta_key = %s",
-                self::META_KEY
-            )
-        );
+        $meta_key = self::meta_key();
+        $user_ids = self::get_site_user_ids_with_favorites();
 
         $total = 0;
-        foreach ($rows as $raw) {
-            $data = maybe_unserialize($raw);
+        foreach ($user_ids as $uid) {
+            $data = get_user_meta($uid, $meta_key, true);
             if (is_array($data)) {
                 foreach ($data as $fav) {
                     if (is_array($fav) && ($fav['postType'] ?? '') === $post_type) {
@@ -392,6 +398,40 @@ final class Favorites {
     /* ------------------------------------------------------------------ */
     /*  Internal helpers                                                    */
     /* ------------------------------------------------------------------ */
+
+    /**
+     * Get user IDs on the current site that have favorites meta.
+     *
+     * On multisite, scoped to users of the current blog via get_users().
+     * On single site, falls back to a direct usermeta query for performance.
+     *
+     * @return int[]
+     */
+    private static function get_site_user_ids_with_favorites(): array {
+        $meta_key = self::meta_key();
+
+        if (is_multisite()) {
+            $users = get_users([
+                'blog_id'  => get_current_blog_id(),
+                'fields'   => 'ID',
+                'meta_key' => $meta_key,
+            ]);
+
+            return array_map('intval', $users);
+        }
+
+        // Single site — direct query is fine.
+        global $wpdb;
+
+        $user_ids = $wpdb->get_col(
+            $wpdb->prepare(
+                "SELECT user_id FROM {$wpdb->usermeta} WHERE meta_key = %s",
+                $meta_key
+            )
+        );
+
+        return array_map('intval', $user_ids);
+    }
 
     /**
      * Sanitize a favorites array.
