@@ -20,9 +20,6 @@ final class Settings {
 
     /**
      * Register hooks.
-     *
-     * Note: add_menu_page() is registered separately by Plugin::init()
-     * so the top-level menu exists even when the plugin is unlicensed.
      */
     public static function init(): void {
         add_action('admin_init', [self::class, 'handle_save']);
@@ -61,14 +58,20 @@ final class Settings {
             WPEF_VERSION
         );
 
-        wp_enqueue_script(
+        wp_enqueue_script_module(
             'wpef-admin-settings',
             WPEF_PLUGIN_URL . 'assets/admin/settings.js',
             [],
-            WPEF_VERSION,
-            true
+            WPEF_VERSION
         );
+    }
 
+    /**
+     * Get the settings data for the Svelte app.
+     *
+     * @return array<string, mixed>
+     */
+    private static function get_settings_app_data(): array {
         $settings    = self::get_settings();
         $rules       = $settings['post_type_rules'];
         $public_types = get_post_types(['public' => true], 'objects');
@@ -102,17 +105,13 @@ final class Settings {
             }
         }
 
-        wp_add_inline_script(
-            'wpef-admin-settings',
-            'window.WPEF_SETTINGS = ' . wp_json_encode([
-                'rules'         => array_values($rules),
-                'roles'         => $role_options,
-                'postTypes'     => $post_type_options,
-                'limitsPerType' => (object) $limits_map,
-                'maxFavorites'  => (int) $settings['max_favorites'],
-            ]) . ';',
-            'before'
-        );
+        return [
+            'rules'         => array_values($rules),
+            'roles'         => $role_options,
+            'postTypes'     => $post_type_options,
+            'limitsPerType' => (object) $limits_map,
+            'maxFavorites'  => (int) $settings['max_favorites'],
+        ];
     }
 
     /**
@@ -374,23 +373,6 @@ final class Settings {
      * Render the settings page.
      */
     public static function render_page(): void {
-        // If unlicensed, show activation prompt instead of settings.
-        if (!\WPE\Favorites\Plugin::is_licensed()) {
-            $license_url = admin_url('admin.php?page=' . WPEF_LICENSE_SLUG . '-manage-license');
-            ?>
-            <div class="wrap">
-                <h1><?php esc_html_e('Favorites Settings', 'wpef'); ?></h1>
-                <div class="notice notice-warning inline">
-                    <p>
-                        <?php esc_html_e('A valid license is required to access settings.', 'wpef'); ?>
-                        <a href="<?php echo esc_url($license_url); ?>"><?php esc_html_e('Activate your license', 'wpef'); ?></a>
-                    </p>
-                </div>
-            </div>
-            <?php
-            return;
-        }
-
         // Show admin notices.
         if (isset($_GET['settings-updated'])) {
             settings_errors('wpef_settings');
@@ -399,6 +381,8 @@ final class Settings {
         ?>
         <div class="wrap">
             <h1><?php esc_html_e('Favorites Settings', 'wpef'); ?></h1>
+
+            <script>window.WPEF_SETTINGS = <?php echo wp_json_encode(self::get_settings_app_data()); ?>;</script>
 
             <form method="post" action="">
                 <?php wp_nonce_field(self::NONCE_ACTION, 'wpef_nonce'); ?>

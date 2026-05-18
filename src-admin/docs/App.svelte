@@ -7,7 +7,6 @@
   import TabSettings from './tabs/TabSettings.svelte';
   import TabBricks from './tabs/TabBricks.svelte';
   import TabJavaScript from './tabs/TabJavaScript.svelte';
-  import TabLicensing from './tabs/TabLicensing.svelte';
 
   let activeTab = $state('main');
 </script>
@@ -48,11 +47,6 @@
           label: 'Bricks Integration',
           content: bricksContent,
         },
-        {
-          id: 'licensing',
-          label: 'Licensing',
-          content: licensingContent,
-        },
       ] satisfies TabItem[]}
     />
   </Stack>
@@ -76,10 +70,6 @@
 
 {#snippet bricksContent()}
   <TabBricks />
-{/snippet}
-
-{#snippet licensingContent()}
-  <TabLicensing />
 {/snippet}
 
 <style>

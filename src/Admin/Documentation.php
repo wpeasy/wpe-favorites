@@ -58,12 +58,11 @@ final class Documentation {
             WPEF_VERSION
         );
 
-        wp_enqueue_script(
+        wp_enqueue_script_module(
             'wpef-admin-docs',
             WPEF_PLUGIN_URL . 'assets/admin/docs.js',
             [],
-            WPEF_VERSION,
-            true
+            WPEF_VERSION
         );
     }
 

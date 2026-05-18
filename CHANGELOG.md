@@ -1,5 +1,23 @@
 # Changelog
 
+## 1.0.9 — 2026-05-18
+
+### Changed
+
+- **Updates via GitHub** — reverted to GitHub-based plugin updates using `yahnis-elsts/plugin-update-checker` against the public `wpeasy/wpe-favorites` repository (Release assets enabled); no authentication required
+- **Settings ungated** — removed license gating from the settings page; all admin features always accessible
+
+### Removed
+
+- **FluentCart licensing** — deleted `src/Licensing/` (FluentLicensing, PluginUpdater, LicenseSettings), `WPEF_LICENSE_*` constants, license admin notice, License submenu, and Licensing documentation tab
+- **Local/dev license bypass** — no longer needed; `is_licensed()` and `is_local_dev_site()` removed from `Plugin.php`
+
+### Migration
+
+- `wpef_license_settings` option is purged on uninstall (single-site and multisite) so old license data is cleaned up cleanly
+
+---
+
 ## 1.0.8 — 2026-03-12
 
 ### Added
