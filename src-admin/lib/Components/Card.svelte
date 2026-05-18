@@ -35,7 +35,7 @@
 <div class="wpea-card {mutedClass} {hoverClass} {className}" {style}>
   {#if hasHeader}
     <div class="wpea-card__header">
-      <div>
+      <div style="flex: 1; min-width: 0;">
         {#if header}
           {@render header()}
         {:else}

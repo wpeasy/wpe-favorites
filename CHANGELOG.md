@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.0.10 — 2026-05-18
+
+### Fixed
+
+- **Card header layout** — the wrapper around the `Card` `header` snippet now uses `flex: 1; min-width: 0;` so a sole header child stretches to fill the available width. This pins the rule-row chevron to the far right of the accordion header on the Settings → Rules page (previously bunched up on the left because the wrapper hugged content width inside a `justify-content: space-between` flex parent).
+
+---
+
 ## 1.0.9 — 2026-05-18
 
 ### Changed
